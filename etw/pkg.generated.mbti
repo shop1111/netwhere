@@ -9,6 +9,8 @@ import {
 // Values
 pub let all_providers : Providers
 
+pub fn decode_live(FixedArray[Byte], Int32) -> Array[LiveEvent]
+
 pub fn decode_records(FixedArray[Byte], Int32) -> Array[@ledger.Record]
 
 pub fn session_exists(String) -> Bool
@@ -40,6 +42,11 @@ pub(all) enum Decoder {
   Shadow
 }
 
+pub(all) enum LiveEvent {
+  NetE(@ledger.NetEvent)
+  OtherE(@ledger.Record)
+}
+
 #derive(Eq, @debug.Debug)
 pub(all) struct Providers {
   net : Bool
@@ -51,6 +58,7 @@ pub struct Reader {
   // private fields
 }
 pub fn Reader::drain(Self) -> Array[@ledger.Record]
+pub fn Reader::drain_live(Self) -> Array[LiveEvent]
 pub fn Reader::new(capacity? : Int32) -> Self
 
 #derive(Eq, @debug.Debug)

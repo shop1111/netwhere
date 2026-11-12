@@ -331,20 +331,17 @@ async fn Live::read_mailbox(self : Live) -> Unit {
 ///|
 fn Live::feed(
   self : Live,
-  records : Array[@ledger.Record],
+  events : Array[@etw.LiveEvent],
   devices : @ledger.DeviceMap,
 ) -> Unit {
-  for r in records {
-    match r {
-      Net(raw) =>
-        if !self.paused && @ledger.normalize_net(raw) is Some(e) {
-          self.engine.on_net(e)
-        }
-      Dns(raw) =>
+  for ev in events {
+    match ev {
+      NetE(e) => if !self.paused { self.engine.on_net(e) }
+      OtherE(Dns(raw)) =>
         if @ledger.normalize_dns(raw) is Some(a) {
           self.engine.on_dns(a)
         }
-      ProcStart(raw) =>
+      OtherE(ProcStart(raw)) =>
         self.engine.on_proc_start(@ledger.normalize_proc_start(raw, devices))
       _ => ()
     }
@@ -571,7 +568,7 @@ async fn run_collector(opts : RunOptions) -> Int32 {
       live.heartbeat("running")
       for ;; {
         @async.sleep(200)
-        live.feed(reader.drain(), devices)
+        live.feed(reader.drain_live(), devices)
         live.read_mailbox()
         let now = @sys.now()
         if now - last_usage >= 10L * sec {
@@ -613,9 +610,9 @@ async fn run_collector(opts : RunOptions) -> Int32 {
   let finished = @async.handle_cancellation(body)
   // Shutdown: deliver the ETW tail, write everything still pending.
   @async.sleep(1200)
-  live.feed(reader.drain(), devices)
+  live.feed(reader.drain_live(), devices)
   @etw.stop()
-  live.feed(reader.drain(), devices)
+  live.feed(reader.drain_live(), devices)
   live.write_usage(9_000_000_000_000_000_000L, 0L)
   live.heartbeat("stopped")
   live.note(if finished is None { "stopped (signal)" } else { "stopped" })

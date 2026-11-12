@@ -1,0 +1,13 @@
+import {
+  "shop1111/netwhere/etw",
+  "shop1111/netwhere/ledger",
+  "shop1111/netwhere/rules",
+  "shop1111/netwhere/sys",
+  "moonbitlang/core/env",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
+
+warnings = "-79"

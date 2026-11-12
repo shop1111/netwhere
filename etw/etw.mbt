@@ -261,12 +261,17 @@ fn Cursor::str(self : Cursor) -> String {
 }
 
 ///|
-fn Cursor::addr(self : Cursor, family : Int32) -> String {
+fn Cursor::ip(self : Cursor, family : Int32) -> @netaddr.IpAddr {
   let b = self.b
   let p = self.p
   self.p += 16
   if family == 4 {
-    "\{b[p].to_int()}.\{b[p + 1].to_int()}.\{b[p + 2].to_int()}.\{b[p + 3].to_int()}"
+    V4(
+      (b[p].to_uint() << 24) |
+      (b[p + 1].to_uint() << 16) |
+      (b[p + 2].to_uint() << 8) |
+      b[p + 3].to_uint(),
+    )
   } else {
     let mut hi : UInt64 = 0
     let mut lo : UInt64 = 0
@@ -274,48 +279,70 @@ fn Cursor::addr(self : Cursor, family : Int32) -> String {
       hi = (hi << 8) | b[p + i].to_uint64()
       lo = (lo << 8) | b[p + 8 + i].to_uint64()
     }
-    @netaddr.IpAddr::V6(hi, lo).to_text()
+    V6(hi, lo)
   }
 }
 
 ///|
-/// Decodes a buffer of length-prefixed records (the C queue format).
-/// Exposed for tests; `Reader::drain` is the normal entry point.
-pub fn decode_records(
+/// What the live collector consumes: network events already normalized
+/// (no address text round trip), everything else as raw records.
+pub(all) enum LiveEvent {
+  NetE(@ledger.NetEvent)
+  OtherE(@ledger.Record)
+}
+
+///|
+/// Decodes the record at `off`; returns it (if known) and the next offset.
+/// `live` turns network records into normalized events directly.
+fn decode_at(
   b : FixedArray[Byte],
-  total : Int32,
-) -> Array[@ledger.Record] {
-  let out = []
-  let mut off = 0
-  while off + 4 <= total {
-    let c : Cursor = { b, p: off, }
-    let len = c.u32()
-    let next = off + 4 + len
-    let kind = c.u8()
-    let _version = c.u8()
-    let id = c.u16()
-    let header_pid = c.u32()
-    let t = c.i64()
-    match kind {
-      1 => {
-        let pid = c.u32()
-        let size = c.u32()
-        let family = c.u8()
-        let saddr = c.addr(family)
-        let daddr = c.addr(family)
-        let sport = c.u16()
-        let dport = c.u16()
-        out.push(
-          @ledger.Record::Net({ t, id, pid, size, saddr, sport, daddr, dport, }),
+  off : Int32,
+  live : Bool,
+) -> (LiveEvent?, Int32) {
+  let c : Cursor = { b, p: off, }
+  let len = c.u32()
+  let next = off + 4 + len
+  let kind = c.u8()
+  let _version = c.u8()
+  let id = c.u16()
+  let header_pid = c.u32()
+  let t = c.i64()
+  let ev : LiveEvent? = match kind {
+    1 => {
+      let pid = c.u32()
+      let size = c.u32()
+      let family = c.u8()
+      let s = c.ip(family)
+      let d = c.ip(family)
+      let sport = c.u16()
+      let dport = c.u16()
+      if live {
+        @ledger.net_event(t, id, pid, size, s, sport, d, dport).map(e => NetE(e))
+      } else {
+        Some(
+          OtherE(
+            Net({
+              t,
+              id,
+              pid,
+              size,
+              saddr: s.to_text(),
+              sport,
+              daddr: d.to_text(),
+              dport,
+            }),
+          ),
         )
       }
-      2 => {
-        let client = c.u32()
-        let status = c.u32()
-        let name = c.str()
-        let results = c.str()
-        out.push(
-          @ledger.Record::Dns({
+    }
+    2 => {
+      let client = c.u32()
+      let status = c.u32()
+      let name = c.str()
+      let results = c.str()
+      Some(
+        OtherE(
+          Dns({
             t,
             id,
             header_pid,
@@ -328,24 +355,55 @@ pub fn decode_records(
             status,
             results,
           }),
-        )
-      }
-      3 => {
-        let pid = c.u32()
-        let ppid = c.u32()
-        let create_time = c.i64()
-        let image = c.str()
-        out.push(
-          @ledger.Record::ProcStart({ t, pid, ppid, create_time, image, }),
-        )
-      }
-      4 => {
-        let pid = c.u32()
-        let create_time = c.i64()
-        let exit_code = c.u32()
-        out.push(@ledger.Record::ProcStop({ t, pid, create_time, exit_code, }))
-      }
-      _ => ()
+        ),
+      )
+    }
+    3 => {
+      let pid = c.u32()
+      let ppid = c.u32()
+      let create_time = c.i64()
+      let image = c.str()
+      Some(OtherE(ProcStart({ t, pid, ppid, create_time, image, })))
+    }
+    4 => {
+      let pid = c.u32()
+      let create_time = c.i64()
+      let exit_code = c.u32()
+      Some(OtherE(ProcStop({ t, pid, create_time, exit_code, })))
+    }
+    _ => None
+  }
+  (ev, next)
+}
+
+///|
+/// Decodes a buffer of length-prefixed records (the C queue format) into
+/// recording records. Exposed for tests and `record`.
+pub fn decode_records(
+  b : FixedArray[Byte],
+  total : Int32,
+) -> Array[@ledger.Record] {
+  let out = []
+  let mut off = 0
+  while off + 4 <= total {
+    let (ev, next) = decode_at(b, off, false)
+    if ev is Some(OtherE(r)) {
+      out.push(r)
+    }
+    off = next
+  }
+  out
+}
+
+///|
+/// Live-path decoding (see LiveEvent).
+pub fn decode_live(b : FixedArray[Byte], total : Int32) -> Array[LiveEvent] {
+  let out = []
+  let mut off = 0
+  while off + 4 <= total {
+    let (ev, next) = decode_at(b, off, true)
+    if ev is Some(e) {
+      out.push(e)
     }
     off = next
   }
@@ -357,4 +415,11 @@ pub fn decode_records(
 pub fn Reader::drain(self : Reader) -> Array[@ledger.Record] {
   let n = nw_etw_drain(self.buf, self.buf.length())
   decode_records(self.buf, n)
+}
+
+///|
+/// Live-path drain (see LiveEvent).
+pub fn Reader::drain_live(self : Reader) -> Array[LiveEvent] {
+  let n = nw_etw_drain(self.buf, self.buf.length())
+  decode_live(self.buf, n)
 }

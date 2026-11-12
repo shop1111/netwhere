@@ -65,11 +65,27 @@ fn net_id(id : Int32) -> (Proto, NetKind)? {
 /// Converts a raw Kernel-Network event. Returns None for event ids without
 /// accounting value and for unparseable addresses.
 pub fn normalize_net(raw : RawNet) -> NetEvent? {
-  guard net_id(raw.id) is Some((proto, kind)) else { return None }
   guard @netaddr.IpAddr::parse(raw.saddr) is Some(s) else { return None }
   guard @netaddr.IpAddr::parse(raw.daddr) is Some(d) else { return None }
-  let src = { addr: s.unmap(), port: raw.sport, }
-  let dst = { addr: d.unmap(), port: raw.dport, }
+  net_event(raw.t, raw.id, raw.pid, raw.size, s, raw.sport, d, raw.dport)
+}
+
+///|
+/// The normalization rules on already-parsed addresses; the collector's
+/// live path calls this directly and skips the text round trip.
+pub fn net_event(
+  t : Ticks,
+  id : Int32,
+  pid : Int32,
+  size : Int32,
+  saddr : @netaddr.IpAddr,
+  sport : Int32,
+  daddr : @netaddr.IpAddr,
+  dport : Int32,
+) -> NetEvent? {
+  guard net_id(id) is Some((proto, kind)) else { return None }
+  let src = { addr: saddr.unmap(), port: sport, }
+  let dst = { addr: daddr.unmap(), port: dport, }
   // UDP receive is recorded in packet direction: the packet's destination is
   // this machine. Every TCP event is already written from the local side.
   let (sock, peer) = if proto == Udp && kind == Recv {
@@ -77,7 +93,7 @@ pub fn normalize_net(raw : RawNet) -> NetEvent? {
   } else {
     (src, dst)
   }
-  Some({ t: raw.t, pid: raw.pid, proto, kind, sock, peer, size: raw.size, })
+  Some({ t, pid, proto, kind, sock, peer, size, })
 }
 
 ///|

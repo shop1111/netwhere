@@ -18,6 +18,8 @@ pub let join_window : Int64
 
 pub let known_core_names : Array[String]
 
+pub fn net_event(Int64, Int32, Int32, Int32, @netaddr.IpAddr, Int32, @netaddr.IpAddr, Int32) -> NetEvent?
+
 pub fn normalize_dns(RawDns) -> DnsAnswer?
 
 pub fn normalize_net(RawNet) -> NetEvent?
