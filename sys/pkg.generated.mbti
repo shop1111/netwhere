@@ -16,6 +16,8 @@ pub fn current_pid() -> Int32
 
 pub fn current_user_sid() -> String
 
+pub fn data_dir() -> String
+
 pub fn exit(Int32) -> Unit
 
 pub fn getenv(String) -> String?

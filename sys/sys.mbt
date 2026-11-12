@@ -322,3 +322,12 @@ pub fn process_name(
     }
   }
 }
+
+///|
+/// netwhere's data directory: %ProgramData%\netwhere.
+pub fn data_dir() -> String {
+  match getenv("ProgramData") {
+    Some(p) => p + "\\netwhere"
+    None => "C:\\ProgramData\\netwhere"
+  }
+}

@@ -3,7 +3,7 @@
 ///|
 let usage : String =
   #|usage:
-  #|  netwhered run [--data-dir DIR] [--secs N] [--decoder fast|shadow|tdh]
+  #|  netwhered run [--data-dir DIR] [--secs N] [--decoder tdh|fast|shadow]
   #|  netwhered record --out FILE [--secs N] [--controller HOST:PORT] [--secret S]
   #|                   [--decoder shadow|fast|tdh] [--snapshot-ms N] [--note TEXT]
   #|                   [--stop-file PATH] [--ready-file PATH]
@@ -68,7 +68,8 @@ async fn cmd_run(args : ArrayView[String]) -> Int32 {
       return 2
     }
   }
-  let decoder : @etw.Decoder = match a.get("--decoder", "fast") {
+  // tdh until a shadow recording shows the fast path matches (PLAN 1.1).
+  let decoder : @etw.Decoder = match a.get("--decoder", "tdh") {
     "shadow" => Shadow
     "fast" => Fast
     "tdh" => Tdh

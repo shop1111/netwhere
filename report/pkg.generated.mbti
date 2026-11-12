@@ -14,7 +14,13 @@ pub fn exit_label(@ledger.Exit) -> String
 
 pub fn flow_table(Array[@ledger.FlowSummary], Bool) -> String
 
+pub fn format_local(Int64, Int32) -> String
+
+pub fn format_local_date(Int64, Int32) -> String
+
 pub fn human_bytes(Int64) -> String
+
+pub fn local_day_start(Int64, Int32) -> Int64
 
 pub fn table(Array[String], Array[Array[String]]) -> String
 
