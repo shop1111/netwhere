@@ -1,11 +1,15 @@
 import {
+  "shop1111/netwhere/config",
   "shop1111/netwhere/etw",
   "shop1111/netwhere/internal/cli",
   "shop1111/netwhere/ledger",
   "shop1111/netwhere/mihomo",
   "shop1111/netwhere/mihomo/client",
   "shop1111/netwhere/netaddr",
+  "shop1111/netwhere/mailbox",
   "shop1111/netwhere/route",
+  "shop1111/netwhere/rules",
+  "shop1111/netwhere/store",
   "shop1111/netwhere/sys",
   "moonbitlang/async",
   "moonbitlang/async/fs",
@@ -16,5 +20,7 @@ import {
 }
 
 pkgtype(kind: "executable")
+
+supported_targets = "native"
 
 warnings = "-79"

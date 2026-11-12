@@ -199,6 +199,13 @@ pub fn Engine::seed_parent(self : Engine, pid : Int32, ppid : Int32) -> Unit {
 }
 
 ///|
+/// Marks a process as a proxy core (for example the owner of the inbound
+/// ports reported by /configs).
+pub fn Engine::set_core(self : Engine, pid : Int32, name : String) -> Unit {
+  self.core_pids[pid] = name
+}
+
+///|
 pub fn Engine::is_core(self : Engine, pid : Int32) -> Bool {
   self.core_pids.contains(pid)
 }
@@ -734,12 +741,17 @@ pub fn Engine::take_usage(
 /// Forgets flows idle for longer than `idle` whose bytes were all handed
 /// out, and core records older than `idle`. Returns how many flows went.
 /// Keeps memory bounded in the long-running collector.
-pub fn Engine::evict_idle(self : Engine, now : Ticks, idle : Int64) -> Int32 {
+pub fn Engine::evict_idle(
+  self : Engine,
+  now : Ticks,
+  idle : Int64,
+  protect~ : (Int32) -> Bool = _ => false,
+) -> Int32 {
   let keep = []
   let mut gone = 0
   for k in self.order {
     let f = self.flows[k]
-    if f.last < now - idle && f.pending.length() == 0 {
+    if f.last < now - idle && f.pending.length() == 0 && !protect(k.pid) {
       self.flows.remove(k)
       gone += 1
     } else {

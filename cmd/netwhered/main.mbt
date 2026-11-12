@@ -3,10 +3,13 @@
 ///|
 let usage : String =
   #|usage:
+  #|  netwhered run [--data-dir DIR] [--secs N] [--decoder fast|shadow|tdh]
   #|  netwhered record --out FILE [--secs N] [--controller HOST:PORT] [--secret S]
   #|                   [--decoder shadow|fast|tdh] [--snapshot-ms N] [--note TEXT]
   #|                   [--stop-file PATH] [--ready-file PATH]
   #|
+  #|  run      the collector (normally started at logon by a scheduled task);
+  #|           data in %ProgramData%\netwhere unless --data-dir is given
   #|  record   write an NDJSON recording of ETW events, Mihomo snapshots and
   #|           log lines and route facts (Ctrl+C stops; --secs 0 = until Ctrl+C)
 
@@ -58,6 +61,36 @@ async fn cmd_record(args : ArrayView[String]) -> Int32 {
 }
 
 ///|
+async fn cmd_run(args : ArrayView[String]) -> Int32 {
+  let a = @cli.parse(args, with_value=["--data-dir", "--secs", "--decoder"], switches=[]) catch {
+    e => {
+      println("run: \{e}")
+      return 2
+    }
+  }
+  let decoder : @etw.Decoder = match a.get("--decoder", "fast") {
+    "shadow" => Shadow
+    "fast" => Fast
+    "tdh" => Tdh
+    other => {
+      println("run: unknown decoder \{other}")
+      return 2
+    }
+  }
+  let secs = a.int("--secs", 0) catch {
+    e => {
+      println("run: \{e}")
+      return 2
+    }
+  }
+  run_collector({
+    data_dir: a.get("--data-dir", default_data_dir()),
+    secs,
+    decoder,
+  })
+}
+
+///|
 async fn main {
   @signal.set_global_cancellation_signals([SIGINT, SIGBREAK])
   let args = @env.args()
@@ -67,6 +100,7 @@ async fn main {
   } else {
     match args[1] {
       "record" => cmd_record(args[2:])
+      "run" => cmd_run(args[2:])
       _ => {
         println(usage)
         2

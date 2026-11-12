@@ -87,7 +87,7 @@ pub struct Engine {
   // private fields
 }
 pub fn Engine::core_present(Self) -> Bool
-pub fn Engine::evict_idle(Self, Int64, Int64) -> Int32
+pub fn Engine::evict_idle(Self, Int64, Int64, protect? : (Int32) -> Bool) -> Int32
 pub fn Engine::flow_count(Self) -> Int32
 pub fn Engine::flows(Self) -> Array[FlowSummary]
 pub fn Engine::flows_of(Self, Array[Int32]) -> Array[FlowSummary]
@@ -103,6 +103,7 @@ pub fn Engine::parent_of(Self, Int32) -> Int32?
 pub fn Engine::process_tree(Self, Int32) -> Array[Int32]
 pub fn Engine::seed_parent(Self, Int32, Int32) -> Unit
 pub fn Engine::seed_process(Self, Int32, String) -> Unit
+pub fn Engine::set_core(Self, Int32, String) -> Unit
 pub fn Engine::take_usage(Self, @rules.RuleSet, Int64, settle? : Int64) -> Array[UsageRow]
 pub fn Engine::totals(Self) -> Totals
 pub fn Engine::usage_rows(Self, @rules.RuleSet) -> Array[UsageRow]
