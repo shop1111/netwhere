@@ -1,0 +1,32 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/mihomo/client"
+
+import {
+  "moonbitlang/core/json",
+  "shop1111/netwhere/mihomo",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) struct Controller {
+  addr : String
+  secret : String
+}
+pub async fn Controller::configs(Self) -> @mihomo.CoreConfig
+pub async fn Controller::get_json(Self, String) -> @json.Json
+pub fn Controller::new(addr? : String, secret? : String) -> Self
+pub async fn Controller::subscribe(Self, String, async (String) -> Unit, on_state? : (LinkState) -> Unit) -> Unit
+pub async fn Controller::watch_connections(Self, Int32, async (String) -> Unit, on_state? : (LinkState) -> Unit) -> Unit
+pub async fn Controller::watch_logs(Self, async (String) -> Unit, on_state? : (LinkState) -> Unit) -> Unit
+
+pub(all) enum LinkState {
+  Connected
+  Disconnected(String)
+}
+
+// Type aliases
+
+// Traits

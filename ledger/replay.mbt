@@ -66,6 +66,10 @@ pub fn replay(rec : Recording) -> (Engine, ReplayStats) {
     cores=rec.header.cores.map(c => (c.pid, c.name)),
     tun_prefixes~,
   )
+  for p in rec.header.procs {
+    engine.seed_process(p.pid, p.image)
+    engine.seed_parent(p.pid, p.ppid)
+  }
   let mut net_ignored = 0
   let mut dns_ignored = 0
   let mut core_frames_bad = 0

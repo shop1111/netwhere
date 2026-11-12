@@ -209,3 +209,45 @@ moonbit_string_t nw_getenv(moonbit_string_t name) {
   if (r == 0 || r >= 4096) return moonbit_make_string(0, 0);
   return wide_to_mbt(buf, (int)r);
 }
+
+#include <stdio.h>
+// Flushes stdio and exits with the given code.
+void nw_exit(int32_t code) {
+  fflush(stdout);
+  fflush(stderr);
+  ExitProcess((UINT)code);
+}
+
+#include <tlhelp32.h>
+// All processes: u32 count, then count x { u32 pid, u32 ppid, u16 len, UTF-8 exe name }.
+// Returns bytes written or -(Win32 error); -122 when the buffer is too small.
+int32_t nw_process_list(uint8_t *out, int32_t cap) {
+  HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+  if (snap == INVALID_HANDLE_VALUE) return -(int32_t)GetLastError();
+  PROCESSENTRY32W pe;
+  pe.dwSize = sizeof pe;
+  int32_t len = 4;
+  uint32_t count = 0;
+  int overflow = 0;
+  if (Process32FirstW(snap, &pe)) {
+    do {
+      char name[1024];
+      int m = WideCharToMultiByte(CP_UTF8, 0, pe.szExeFile, -1, name, sizeof name, NULL, NULL);
+      if (m > 0) m -= 1;  // drop the terminating NUL
+      if (m < 0) m = 0;
+      if (len + 10 + m > cap) { overflow = 1; break; }
+      uint32_t pid = pe.th32ProcessID, ppid = pe.th32ParentProcessID;
+      uint16_t n16 = (uint16_t)m;
+      memcpy(out + len, &pid, 4);
+      memcpy(out + len + 4, &ppid, 4);
+      memcpy(out + len + 8, &n16, 2);
+      memcpy(out + len + 10, name, (size_t)m);
+      len += 10 + m;
+      count++;
+    } while (Process32NextW(snap, &pe));
+  }
+  CloseHandle(snap);
+  if (overflow) return -122;
+  memcpy(out, &count, 4);
+  return len;
+}

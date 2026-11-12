@@ -1,0 +1,14 @@
+import {
+  "shop1111/netwhere/internal/cli",
+  "shop1111/netwhere/ledger",
+  "shop1111/netwhere/report",
+  "shop1111/netwhere/sys",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/signal",
+  "moonbitlang/core/env",
+}
+
+pkgtype(kind: "executable")
+
+warnings = "-79"

@@ -17,6 +17,7 @@ fn sample_recording() -> @ledger.Recording {
         },
       ],
       listeners: [{ addr: ip("127.0.0.1"), port: 7890, pid: 14948, }],
+      procs: [{ pid: 14948, ppid: 900, image: "FlClashCore.exe", }],
     },
     records: [
       ProcStart({
@@ -121,4 +122,19 @@ test "crlf line endings are accepted" {
   let text = sample_recording().to_text().replace_all(old="\n", new="\r\n")
   let back = @ledger.parse_recording(text)
   assert_eq(back.records.length(), 9)
+}
+
+///|
+test "header without procs still parses" {
+  let line = "{\"k\":\"hdr\",\"v\":1,\"t0\":\"5\",\"note\":\"\",\"devices\":[],\"cores\":[],\"tun\":[],\"listeners\":[]}"
+  let r = @ledger.parse_recording(line)
+  assert_eq(r.header.procs.length(), 0)
+}
+
+///|
+test "procs seed process names and parents in replay" {
+  let rec = sample_recording()
+  let (engine, _) = @ledger.replay(rec)
+  assert_true(engine.is_core(14948))
+  assert_eq(engine.process_tree(900), [900, 14948])
 }

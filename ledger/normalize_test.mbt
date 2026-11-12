@@ -18,15 +18,7 @@ fn raw_net(
 test "tcp events are written from the sock side in both directions" {
   // Data received by FlClashCore (PID property 14948, header pid was System).
   let recv = @ledger.normalize_net(
-    raw_net(
-      11,
-      14948,
-      "10.0.0.5",
-      55738,
-      "172.215.188.225",
-      443,
-      size=4380,
-    ),
+    raw_net(11, 14948, "10.0.0.5", 55738, "172.215.188.225", 443, size=4380),
   ).unwrap()
   inspect(recv.sock, content="10.0.0.5:55738")
   inspect(recv.peer, content="172.215.188.225:443")

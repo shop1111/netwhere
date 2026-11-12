@@ -13,3 +13,7 @@ description = "Windows per-app traffic route ledger: where each program's traffi
 preferred_target = "native"
 
 supported_targets = [ "native" ]
+
+import {
+  "moonbitlang/async@0.22.9",
+}

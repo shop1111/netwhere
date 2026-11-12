@@ -55,6 +55,7 @@ fn header(tun~ : Bool = false) -> @ledger.Header {
       { addr: ipa("127.0.0.1"), port: 7890, pid: core_pid, },
       { addr: ipa("127.0.0.1"), port: 5000, pid: 999, },
     ],
+    procs: [],
   }
 }
 
@@ -98,9 +99,7 @@ test "system proxy: app socket counted once, exit from the snapshot" {
     net(2L, 11, core_pid, "127.0.0.1", 7890, "127.0.0.1", 64607, 950),
     net(3L, 10, core_pid, "127.0.0.1", 7890, "127.0.0.1", 64607, 20_035_300),
     // the core's connection to the node (separate total)
-    net(
-      3L, 11, core_pid, "10.0.0.5", 55738, "203.0.113.7", 443, 20_109_000,
-    ),
+    net(3L, 11, core_pid, "10.0.0.5", 55738, "203.0.113.7", 443, 20_109_000),
     snapshot(
       2L * sec,
       (

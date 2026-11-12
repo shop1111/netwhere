@@ -96,6 +96,7 @@ pub fn Engine::on_dns(Self, DnsAnswer) -> Unit
 pub fn Engine::on_net(Self, NetEvent) -> Unit
 pub fn Engine::on_proc_start(Self, ProcStart) -> Unit
 pub fn Engine::process_tree(Self, Int32) -> Array[Int32]
+pub fn Engine::seed_parent(Self, Int32, Int32) -> Unit
 pub fn Engine::seed_process(Self, Int32, String) -> Unit
 pub fn Engine::totals(Self) -> Totals
 pub fn Engine::usage_rows(Self, @rules.RuleSet) -> Array[UsageRow]
@@ -137,6 +138,7 @@ pub(all) struct FlowSummary {
   rule : String
   domain : String
   domain_source : DomainSource
+  target_port : Int32
   first : Int64
   last : Int64
   up : Int64
@@ -153,6 +155,7 @@ pub(all) struct Header {
   cores : Array[CoreProc]
   tun : Array[TunInfo]
   listeners : Array[Listener]
+  procs : Array[ProcInfo]
 }
 pub fn Header::to_line(Self) -> String
 
@@ -183,6 +186,13 @@ pub(all) enum NetKind {
   Disconnect
   Retransmit
   Reconnect
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct ProcInfo {
+  pid : Int32
+  ppid : Int32
+  image : String
 }
 
 #derive(Eq, @debug.Debug)

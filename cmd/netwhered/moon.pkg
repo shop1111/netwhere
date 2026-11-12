@@ -1,0 +1,20 @@
+import {
+  "shop1111/netwhere/etw",
+  "shop1111/netwhere/internal/cli",
+  "shop1111/netwhere/ledger",
+  "shop1111/netwhere/mihomo",
+  "shop1111/netwhere/mihomo/client",
+  "shop1111/netwhere/netaddr",
+  "shop1111/netwhere/route",
+  "shop1111/netwhere/sys",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/signal",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/debug",
+}
+
+pkgtype(kind: "executable")
+
+warnings = "-79"

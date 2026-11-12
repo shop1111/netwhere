@@ -1,0 +1,86 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/etw"
+
+import {
+  "moonbitlang/core/debug",
+  "shop1111/netwhere/ledger",
+}
+
+// Values
+pub let all_providers : Providers
+
+pub fn decode_records(FixedArray[Byte], Int32) -> Array[@ledger.Record]
+
+pub fn session_exists(String) -> Bool
+
+pub fn session_loss() -> SessionLoss?
+
+pub fn start(String, providers? : Providers, decoder? : Decoder, queue_kb? : Int32) -> Unit raise EtwError
+
+pub fn stats() -> Stats
+
+pub fn stop() -> Unit
+
+pub fn stop_session(String) -> Int32
+
+pub let unelevated_providers : Providers
+
+// Errors
+#derive(@debug.Debug)
+pub(all) suberror EtwError {
+  StartFailed(stage~ : String, code~ : Int32)
+}
+pub impl Show for EtwError
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum Decoder {
+  Tdh
+  Fast
+  Shadow
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Providers {
+  net : Bool
+  dns : Bool
+  process : Bool
+}
+
+pub struct Reader {
+  // private fields
+}
+pub fn Reader::drain(Self) -> Array[@ledger.Record]
+pub fn Reader::new(capacity? : Int32) -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) struct SessionLoss {
+  events_lost : Int64
+  buffers_written : Int64
+  log_buffers_lost : Int64
+  realtime_buffers_lost : Int64
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Stats {
+  events : Int64
+  net : Int64
+  dns : Int64
+  process : Int64
+  dropped : Int64
+  queued_bytes : Int64
+  callback_ns : Int64
+  max_queue : Int64
+  decode_fail : Int64
+  stale_sessions : Int64
+  other : Int64
+  fast_fields : Int64
+  slow_fields : Int64
+  shadow_checked : Int64
+  shadow_mismatch : Int64
+  skipped : Int64
+}
+
+// Type aliases
+
+// Traits

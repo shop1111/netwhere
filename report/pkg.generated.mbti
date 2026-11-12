@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/report"
+
+import {
+  "shop1111/netwhere/ledger",
+}
+
+// Values
+pub fn display_width(String) -> Int32
+
+pub fn entry_label(@ledger.Entry, Bool) -> String
+
+pub fn exit_label(@ledger.Exit) -> String
+
+pub fn flow_table(Array[@ledger.FlowSummary], Bool) -> String
+
+pub fn human_bytes(Int64) -> String
+
+pub fn table(Array[String], Array[Array[String]]) -> String
+
+pub fn totals_text(@ledger.Totals, Bool) -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

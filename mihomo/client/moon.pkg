@@ -1,0 +1,8 @@
+import {
+  "shop1111/netwhere/mihomo",
+  "moonbitlang/async",
+  "moonbitlang/async/http",
+  "moonbitlang/async/websocket",
+}
+
+warnings = "-79"

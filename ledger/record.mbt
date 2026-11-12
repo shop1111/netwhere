@@ -50,6 +50,16 @@ pub(all) struct RouteFact {
 }
 
 ///|
+/// A process already running when the recording started.
+#derive(Eq, Debug)
+pub(all) struct ProcInfo {
+  pid : Int32
+  ppid : Int32
+  /// Full image path when it could be read, else the executable name.
+  image : String
+}
+
+///|
 #derive(Eq, Debug)
 pub(all) struct Header {
   version : Int32
@@ -59,6 +69,8 @@ pub(all) struct Header {
   cores : Array[CoreProc]
   tun : Array[TunInfo]
   listeners : Array[Listener]
+  /// Optional in the file; missing means no snapshot was taken.
+  procs : Array[ProcInfo]
 }
 
 ///|
@@ -162,6 +174,14 @@ pub fn Header::to_line(self : Header) -> String {
       ),
     ),
     ("listeners", Json::array(self.listeners.map(listener_json))),
+    (
+      "procs",
+      Json::array(
+        self.procs.map(p => {
+          Json::array([num(p.pid), num(p.ppid), Json::string(p.image)])
+        }),
+      ),
+    ),
   ]).stringify()
 }
 
@@ -418,6 +438,16 @@ fn parse_header(f : Fields) -> Header raise RecordError {
   for l in f.array("listeners") {
     listeners.push(f.listener(l))
   }
+  let procs = []
+  if f.map.contains("procs") {
+    for p in f.array("procs") {
+      match p {
+        [Number(pid, ..), Number(ppid, ..), String(image)] =>
+          procs.push({ pid: pid.to_int(), ppid: ppid.to_int(), image, })
+        _ => raise f.fail("procs entries are [pid, ppid, image]")
+      }
+    }
+  }
   {
     version,
     t0: f.int64_str("t0"),
@@ -426,6 +456,7 @@ fn parse_header(f : Fields) -> Header raise RecordError {
     cores,
     tun,
     listeners,
+    procs,
   }
 }
 

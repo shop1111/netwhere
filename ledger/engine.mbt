@@ -125,6 +125,8 @@ priv struct CoreInfo {
   network : String
   process : String
   host : String
+  /// Destination port the application asked the core for.
+  port : Int32
   outbound : String
   group : String
   rule : String
@@ -186,6 +188,12 @@ pub fn Engine::seed_process(self : Engine, pid : Int32, image : String) -> Unit 
   if known_core_names.contains(base_name(image).to_lower()) {
     self.core_pids[pid] = base_name(image)
   }
+}
+
+///|
+/// Records a parent link for a process that started before observation.
+pub fn Engine::seed_parent(self : Engine, pid : Int32, ppid : Int32) -> Unit {
+  self.parents[pid] = ppid
 }
 
 ///|
@@ -331,6 +339,7 @@ pub fn Engine::on_core_snapshot(
       network: c.network,
       process: c.process,
       host: c.host,
+      port: c.dest_port,
       outbound: c.outbound(),
       group,
       rule: if c.rule_payload == "" {
@@ -359,6 +368,7 @@ pub fn Engine::on_core_log(
     } else {
       l.dest_host
     },
+    port: l.dest_port,
     outbound: l.outbound,
     group: l.group,
     rule: if l.rule_payload == "" {
@@ -447,6 +457,9 @@ pub(all) struct FlowSummary {
   rule : String
   domain : String
   domain_source : DomainSource
+  /// Port the application meant to reach: the peer port, or for flows
+  /// through a proxy port the target port reported by the core.
+  target_port : Int32
   first : Ticks
   last : Ticks
   up : Int64
@@ -496,6 +509,10 @@ fn Engine::summarize(self : Engine, f : Flow) -> FlowSummary {
     },
     domain,
     domain_source,
+    target_port: match core {
+      Some(c) if c.port > 0 => c.port
+      _ => f.key.peer.port
+    },
     first: f.first,
     last: f.last,
     up: f.up,

@@ -1,0 +1,80 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/sys"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn child_exit_code() -> Int32
+
+pub fn child_wait(Int32) -> Bool
+
+pub fn command_line() -> String
+
+pub fn current_pid() -> Int32
+
+pub fn current_user_sid() -> String
+
+pub fn exit(Int32) -> Unit
+
+pub fn getenv(String) -> String?
+
+pub fn image_path(Int32) -> String?
+
+pub fn is_elevated() -> Bool
+
+pub fn join_command_line(ArrayView[String]) -> String
+
+pub fn kill_child() -> Unit
+
+pub fn now() -> Int64
+
+pub fn process_create_time(Int32) -> Int64?
+
+pub fn process_elevated(Int32) -> Bool?
+
+pub fn process_list() -> Array[ProcessEntry]
+
+pub fn process_name(Int32, snapshot? : Array[ProcessEntry]) -> String?
+
+pub fn process_user_sid(Int32) -> String?
+
+pub fn quote_arg(String) -> String
+
+pub fn resume_child() -> Bool
+
+pub fn self_usage() -> Usage
+
+pub fn sleep_ms(Int32) -> Unit
+
+pub fn spawn_suspended(String) -> Int32 raise SpawnError
+
+pub fn utc_offset_minutes() -> Int32
+
+// Errors
+#derive(@debug.Debug)
+pub(all) suberror SpawnError {
+  SpawnError(code~ : Int32)
+}
+pub impl Show for SpawnError
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct ProcessEntry {
+  pid : Int32
+  ppid : Int32
+  exe : String
+}
+
+#derive(@debug.Debug)
+pub(all) struct Usage {
+  cpu_ms : Int64
+  private_bytes : Int64
+  working_set : Int64
+  peak_working_set : Int64
+}
+
+// Type aliases
+
+// Traits
