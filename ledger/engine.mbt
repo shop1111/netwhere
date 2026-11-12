@@ -114,8 +114,10 @@ priv struct Flow {
   mut last : Ticks
   mut up : Int64
   mut down : Int64
-  /// minute index -> (up, down)
+  /// minute index -> (up, down), whole lifetime (replay, usage_rows)
   minutes : Map[Int64, (Int64, Int64)]
+  /// minute index -> (up, down) not yet handed out by take_usage
+  pending : Map[Int64, (Int64, Int64)]
 }
 
 ///|
@@ -281,6 +283,7 @@ pub fn Engine::on_net(self : Engine, e : NetEvent) -> Unit {
         up: 0L,
         down: 0L,
         minutes: Map([]),
+        pending: Map([]),
       }
       self.flows[key] = f
       self.order.push(key)
@@ -298,12 +301,18 @@ pub fn Engine::on_net(self : Engine, e : NetEvent) -> Unit {
     Some(v) => v
     None => (0L, 0L)
   }
+  let (pu, pd) = match flow.pending.get(minute) {
+    Some(v) => v
+    None => (0L, 0L)
+  }
   if e.kind == Send {
     flow.up += bytes
     flow.minutes[minute] = (u + bytes, d)
+    flow.pending[minute] = (pu + bytes, pd)
   } else {
     flow.down += bytes
     flow.minutes[minute] = (u, d + bytes)
+    flow.pending[minute] = (pu, pd + bytes)
   }
 }
 
@@ -656,4 +665,129 @@ pub fn Engine::totals(self : Engine) -> Totals {
     dropped_mirror: self.dropped_mirror,
     dropped_loopback: self.dropped_loopback,
   }
+}
+
+///|
+/// Hands out the bytes counted since the previous call, as usage rows, for
+/// flows whose first event is older than `settle` (default: the join
+/// window), so that their exit has had time to resolve. Later bytes of the
+/// same flow come out on later calls with the same resolution.
+pub fn Engine::take_usage(
+  self : Engine,
+  rules : @rules.RuleSet,
+  now : Ticks,
+  settle~ : Int64 = join_window,
+) -> Array[UsageRow] {
+  let rows : Map[
+    (Int64, String, String, String, Entry, Exit, String),
+    (Int64, Int64),
+  ] = Map([])
+  let keys = []
+  for k in self.order {
+    let flow = self.flows[k]
+    if flow.pending.length() == 0 || flow.first > now - settle {
+      continue
+    }
+    let f = self.summarize(flow)
+    let domain = if f.domain == "" { None } else { Some(f.domain) }
+    let app = match rules.classify(f.process, domain) {
+      Some(c) => c.app
+      None => "Unknown"
+    }
+    for minute, v in flow.pending {
+      let rk = (
+        minute,
+        app,
+        base_name(f.process),
+        f.domain,
+        f.entry,
+        f.exit,
+        f.rule,
+      )
+      match rows.get(rk) {
+        Some((u, d)) => rows[rk] = (u + v.0, d + v.1)
+        None => {
+          rows[rk] = v
+          keys.push(rk)
+        }
+      }
+    }
+    flow.pending.clear()
+  }
+  keys.map(k => {
+    let (u, d) = rows[k]
+    {
+      minute: k.0,
+      app: k.1,
+      process: k.2,
+      domain: k.3,
+      entry: k.4,
+      exit: k.5,
+      rule: k.6,
+      up: u,
+      down: d,
+    }
+  })
+}
+
+///|
+/// Forgets flows idle for longer than `idle` whose bytes were all handed
+/// out, and core records older than `idle`. Returns how many flows went.
+/// Keeps memory bounded in the long-running collector.
+pub fn Engine::evict_idle(self : Engine, now : Ticks, idle : Int64) -> Int32 {
+  let keep = []
+  let mut gone = 0
+  for k in self.order {
+    let f = self.flows[k]
+    if f.last < now - idle && f.pending.length() == 0 {
+      self.flows.remove(k)
+      gone += 1
+    } else {
+      keep.push(k)
+    }
+  }
+  self.order.clear()
+  for k in keep {
+    self.order.push(k)
+  }
+  let ports = self.core_by_port.keys().collect()
+  for port in ports {
+    let fresh = self.core_by_port[port].filter(c => c.t >= now - idle)
+    if fresh.length() == 0 {
+      self.core_by_port.remove(port)
+    } else {
+      self.core_by_port[port] = fresh
+    }
+  }
+  // Snapshot ids only matter while their connection can still be joined.
+  if self.seen_core_ids.length() > 100_000 {
+    self.seen_core_ids.clear()
+  }
+  gone
+}
+
+///|
+pub fn Engine::flow_count(self : Engine) -> Int32 {
+  self.order.length()
+}
+
+///|
+/// Summaries of the flows owned by the given processes.
+pub fn Engine::flows_of(
+  self : Engine,
+  pids : Array[Int32],
+) -> Array[FlowSummary] {
+  self.order
+  .filter(k => pids.contains(k.pid))
+  .map(k => self.summarize(self.flows[k]))
+}
+
+///|
+pub fn Engine::parent_of(self : Engine, pid : Int32) -> Int32? {
+  self.parents.get(pid)
+}
+
+///|
+pub fn Engine::image_of(self : Engine, pid : Int32) -> String? {
+  self.images.get(pid)
 }

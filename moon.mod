@@ -16,4 +16,5 @@ supported_targets = [ "native" ]
 
 import {
   "moonbitlang/async@0.22.9",
+  "moonbit-community/sqlite3@0.2.5",
 }

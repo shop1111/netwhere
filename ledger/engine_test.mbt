@@ -350,3 +350,35 @@ test "process tree for trace" {
   tree.sort()
   assert_eq(tree, [100, 101, 102, 103])
 }
+
+///|
+test "take_usage hands out each byte once, after the settle time" {
+  let rules = @rules.RuleSet::new()
+  let e = run(header(), [
+    curl_start(0L),
+    net(0L, 11, curl_pid, "10.0.0.5", 50001, "104.16.1.1", 443, 1000),
+  ])
+  // Too early: the flow may still get a core record.
+  assert_eq(e.take_usage(rules, t0 + sec).length(), 0)
+  let rows = e.take_usage(rules, t0 + 10L * sec)
+  assert_eq(rows.length(), 1)
+  assert_eq(rows[0].down, 1000L)
+  assert_eq(e.take_usage(rules, t0 + 11L * sec).length(), 0)
+  e.on_net(
+    @ledger.normalize_net({
+      t: t0 + 12L * sec,
+      id: 11,
+      pid: curl_pid,
+      size: 500,
+      saddr: "10.0.0.5",
+      sport: 50001,
+      daddr: "104.16.1.1",
+      dport: 443,
+    }).unwrap(),
+  )
+  let more = e.take_usage(rules, t0 + 13L * sec)
+  assert_eq(more.map(r => r.down), [500L])
+  // Idle flows with nothing pending are forgotten.
+  assert_eq(e.evict_idle(t0 + 600L * sec, 120L * sec), 1)
+  assert_eq(e.flow_count(), 0)
+}

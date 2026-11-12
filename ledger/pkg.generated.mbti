@@ -87,7 +87,11 @@ pub struct Engine {
   // private fields
 }
 pub fn Engine::core_present(Self) -> Bool
+pub fn Engine::evict_idle(Self, Int64, Int64) -> Int32
+pub fn Engine::flow_count(Self) -> Int32
 pub fn Engine::flows(Self) -> Array[FlowSummary]
+pub fn Engine::flows_of(Self, Array[Int32]) -> Array[FlowSummary]
+pub fn Engine::image_of(Self, Int32) -> String?
 pub fn Engine::is_core(Self, Int32) -> Bool
 pub fn Engine::new(EngineEnv, cores? : Array[(Int32, String)], tun_prefixes? : Array[@netaddr.Cidr]) -> Self
 pub fn Engine::on_core_log(Self, Int64, @mihomo.ConnLog) -> Unit
@@ -95,9 +99,11 @@ pub fn Engine::on_core_snapshot(Self, Int64, @mihomo.Snapshot) -> Unit
 pub fn Engine::on_dns(Self, DnsAnswer) -> Unit
 pub fn Engine::on_net(Self, NetEvent) -> Unit
 pub fn Engine::on_proc_start(Self, ProcStart) -> Unit
+pub fn Engine::parent_of(Self, Int32) -> Int32?
 pub fn Engine::process_tree(Self, Int32) -> Array[Int32]
 pub fn Engine::seed_parent(Self, Int32, Int32) -> Unit
 pub fn Engine::seed_process(Self, Int32, String) -> Unit
+pub fn Engine::take_usage(Self, @rules.RuleSet, Int64, settle? : Int64) -> Array[UsageRow]
 pub fn Engine::totals(Self) -> Totals
 pub fn Engine::usage_rows(Self, @rules.RuleSet) -> Array[UsageRow]
 

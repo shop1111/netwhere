@@ -1,0 +1,22 @@
+import {
+  "shop1111/netwhere/ledger",
+  "shop1111/netwhere/report",
+  "moonbit-community/sqlite3",
+  "moonbitlang/core/encoding/utf8",
+}
+
+import {
+  "shop1111/netwhere/ledger",
+  "shop1111/netwhere/sys",
+  "shop1111/netwhere/netaddr",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+} for "test"
+
+options(
+  "native-stub": [ "keeper.c" ],
+)
+
+supported_targets = "native"
+
+warnings = "-79"

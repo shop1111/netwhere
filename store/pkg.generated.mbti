@@ -1,0 +1,115 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/store"
+
+import {
+  "moonbitlang/core/debug",
+  "shop1111/netwhere/ledger",
+}
+
+// Values
+pub fn exit_columns(@ledger.Exit) -> (String, String)
+
+pub let schema_version : Int32
+
+pub let ticks_per_minute : Int64
+
+// Errors
+#derive(@debug.Debug)
+pub(all) suberror StoreError {
+  StoreError(String)
+}
+pub impl Show for StoreError
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum Cell {
+  Int(Int64)
+  Text(String)
+  Real(Double)
+  Null
+}
+
+pub struct Db {
+  // private fields
+}
+pub fn Db::add_usage(Self, Array[@ledger.UsageRow], Bool) -> Unit raise StoreError
+pub fn Db::close(Self) -> Unit
+pub fn Db::heartbeat(Self) -> Heartbeat? raise StoreError
+pub fn Db::meta(Self, String) -> String? raise StoreError
+pub fn Db::open_reader(String) -> Self raise StoreError
+pub fn Db::open_writer(String) -> Self raise StoreError
+pub fn Db::prune_requests(Self, Int64) -> Unit raise StoreError
+pub fn Db::prune_usage(Self, Int64) -> Unit raise StoreError
+pub fn Db::put_request(Self, RequestRow) -> Unit raise StoreError
+pub fn Db::put_trace(Self, String, Array[(Int32, Int32, String)], Array[@ledger.FlowSummary], Bool) -> Unit raise StoreError
+pub fn Db::query(Self, String, Array[Cell]) -> Array[Array[Cell]] raise StoreError
+pub fn Db::request(Self, String) -> RequestRow? raise StoreError
+pub fn Db::run(Self, String, Array[Cell]) -> Unit raise StoreError
+pub fn Db::set_meta(Self, String, String) -> Unit raise StoreError
+pub fn Db::trace_flows(Self, String) -> Array[TraceFlow] raise StoreError
+pub fn Db::trace_procs(Self, String) -> Array[(Int32, Int32, String)] raise StoreError
+pub fn[X] Db::transaction(Self, () -> X raise) -> X raise StoreError
+pub fn Db::usage_between(Self, Int64, Int64) -> Array[UsageRecord] raise StoreError
+pub fn Db::write_heartbeat(Self, Heartbeat) -> Unit raise StoreError
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Heartbeat {
+  pid : Int32
+  started : Int64
+  updated : Int64
+  state : String
+  degraded : Bool
+  core_link : String
+  last_error : String
+  events : Int64
+  dropped : Int64
+  flows : Int32
+  private_bytes : Int64
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct RequestRow {
+  id : String
+  kind : String
+  client_pid : Int32
+  root_pid : Int32
+  state : String
+  reason : String
+  created : Int64
+  updated : Int64
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct TraceFlow {
+  pid : Int32
+  process : String
+  proto : String
+  peer : String
+  domain : String
+  target_port : Int32
+  entry : String
+  exit_kind : String
+  node : String
+  rule : String
+  up : Int64
+  down : Int64
+  inconsistent : Bool
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct UsageRecord {
+  minute : Int64
+  app : String
+  process : String
+  domain : String
+  entry : String
+  exit_kind : String
+  node : String
+  rule : String
+  up : Int64
+  down : Int64
+}
+
+// Type aliases
+
+// Traits
