@@ -37,6 +37,8 @@ async fn main {
       "export" => cmd_export(args[2:])
       "classify" => cmd_classify(args[2:])
       "rules" => cmd_rules(args[2:])
+      "install" => cmd_install(args[2:])
+      "uninstall" => cmd_uninstall(args[2:])
       "replay" => cmd_replay(args[2:])
       "verify" => cmd_verify(args[2:])
       "help" | "--help" | "-h" => {

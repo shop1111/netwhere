@@ -18,6 +18,8 @@ pub fn current_user_sid() -> String
 
 pub fn data_dir() -> String
 
+pub fn detach_console() -> Unit
+
 pub fn exit(Int32) -> Unit
 
 pub fn getenv(String) -> String?
@@ -45,6 +47,10 @@ pub fn process_user_sid(Int32) -> String?
 pub fn quote_arg(String) -> String
 
 pub fn resume_child() -> Bool
+
+pub fn run_elevated(String, String) -> Result[Int32, Int32]
+
+pub fn run_wait(String, Array[String]) -> Result[Int32, Int32]
 
 pub fn self_usage() -> Usage
 

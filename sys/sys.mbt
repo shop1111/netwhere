@@ -331,3 +331,43 @@ pub fn data_dir() -> String {
     None => "C:\\ProgramData\\netwhere"
   }
 }
+
+///|
+#borrow(file, params)
+extern "c" fn nw_run_elevated(file : String, params : String) -> Int32 = "nw_run_elevated"
+
+///|
+#borrow(cmdline)
+extern "c" fn nw_run_wait(cmdline : String) -> Int32 = "nw_run_wait"
+
+///|
+extern "c" fn nw_detach_console() = "nw_detach_console"
+
+///|
+/// Runs `file params` elevated through UAC and waits. Ok(exit code), or
+/// Err(Win32 error) when it did not start (1223: the user declined).
+pub fn run_elevated(file : String, params : String) -> Result[Int32, Int32] {
+  let r = nw_run_elevated(file, params)
+  if r < 0 {
+    Err(-r)
+  } else {
+    Ok(r)
+  }
+}
+
+///|
+/// Runs a program with arguments in this console and waits for it.
+pub fn run_wait(program : String, args : Array[String]) -> Result[Int32, Int32] {
+  let line = join_command_line([program, ..args][:])
+  let r = nw_run_wait(line)
+  if r < 0 {
+    Err(-r)
+  } else {
+    Ok(r)
+  }
+}
+
+///|
+pub fn detach_console() -> Unit {
+  nw_detach_console()
+}

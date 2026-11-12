@@ -62,7 +62,9 @@ async fn cmd_record(args : ArrayView[String]) -> Int32 {
 
 ///|
 async fn cmd_run(args : ArrayView[String]) -> Int32 {
-  let a = @cli.parse(args, with_value=["--data-dir", "--secs", "--decoder"], switches=[]) catch {
+  let a = @cli.parse(args, with_value=["--data-dir", "--secs", "--decoder"], switches=[
+    "--detach",
+  ]) catch {
     e => {
       println("run: \{e}")
       return 2
@@ -84,6 +86,10 @@ async fn cmd_run(args : ArrayView[String]) -> Int32 {
       return 2
     }
   }
+  if a.has("--detach") {
+    // Started by the scheduled task: no console window.
+    @sys.detach_console()
+  }
   run_collector({
     data_dir: a.get("--data-dir", default_data_dir()),
     secs,
@@ -102,6 +108,8 @@ async fn main {
     match args[1] {
       "record" => cmd_record(args[2:])
       "run" => cmd_run(args[2:])
+      "install" => cmd_install(args[2:])
+      "uninstall" => cmd_uninstall(args[2:])
       _ => {
         println(usage)
         2

@@ -1,0 +1,34 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/installer"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn acl_commands(String, String, String) -> Array[Command]
+
+pub fn register_commands(String, String) -> Array[Command]
+
+pub let task_name : String
+
+pub fn task_xml(String, String) -> String
+
+pub fn unregister_commands(String) -> Array[Command]
+
+pub fn utf16le_bom(String) -> Bytes
+
+pub fn valid_user_sid(String) -> Bool
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct Command {
+  program : String
+  args : Array[String]
+}
+
+// Type aliases
+
+// Traits

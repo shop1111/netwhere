@@ -56,3 +56,9 @@ test "process snapshot sees this process and its parent" {
   // System (pid 4) cannot be opened, but the snapshot still names it.
   inspect(@sys.process_name(4, snapshot=list).unwrap(), content="System")
 }
+
+///|
+test "run_wait returns the exit code" {
+  assert_eq(@sys.run_wait("cmd.exe", ["/c", "exit 5"]), Ok(5))
+  assert_true(@sys.run_wait("no-such-program-netwhere.exe", []) is Err(2))
+}

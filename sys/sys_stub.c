@@ -251,3 +251,58 @@ int32_t nw_process_list(uint8_t *out, int32_t cap) {
   memcpy(out, &count, 4);
   return len;
 }
+
+#include <shellapi.h>
+#pragma comment(lib, "shell32.lib")
+
+// Starts file with params elevated (one UAC prompt), waits, returns its exit
+// code; -1223 when the user declined, -(error) on other failures.
+int32_t nw_run_elevated(moonbit_string_t file, moonbit_string_t params) {
+  WCHAR *f = mbt_to_wide(file);
+  WCHAR *a = mbt_to_wide(params);
+  if (!f || !a) { free(f); free(a); return -(int32_t)ERROR_OUTOFMEMORY; }
+  SHELLEXECUTEINFOW sei;
+  memset(&sei, 0, sizeof sei);
+  sei.cbSize = sizeof sei;
+  sei.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC;
+  sei.lpVerb = L"runas";
+  sei.lpFile = f;
+  sei.lpParameters = a;
+  sei.nShow = SW_SHOWNORMAL;
+  BOOL ok = ShellExecuteExW(&sei);
+  DWORD err = ok ? 0 : GetLastError();
+  free(f);
+  free(a);
+  if (!ok) return -(int32_t)err;
+  if (!sei.hProcess) return 0;
+  WaitForSingleObject(sei.hProcess, INFINITE);
+  DWORD code = 0;
+  GetExitCodeProcess(sei.hProcess, &code);
+  CloseHandle(sei.hProcess);
+  return (int32_t)code;
+}
+
+// Runs a command line to completion in this console; returns its exit code
+// or -(Win32 error) when it could not start.
+int32_t nw_run_wait(moonbit_string_t cmdline) {
+  WCHAR *buf = mbt_to_wide(cmdline);
+  if (!buf) return -(int32_t)ERROR_OUTOFMEMORY;
+  STARTUPINFOW si;
+  PROCESS_INFORMATION pi;
+  memset(&si, 0, sizeof si);
+  si.cb = sizeof si;
+  memset(&pi, 0, sizeof pi);
+  BOOL ok = CreateProcessW(NULL, buf, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+  free(buf);
+  if (!ok) return -(int32_t)GetLastError();
+  CloseHandle(pi.hThread);
+  WaitForSingleObject(pi.hProcess, INFINITE);
+  DWORD code = 0;
+  GetExitCodeProcess(pi.hProcess, &code);
+  CloseHandle(pi.hProcess);
+  return (int32_t)code;
+}
+
+// Detaches from the console (closes the window of a console started by the
+// task scheduler). Output after this is discarded.
+void nw_detach_console(void) { FreeConsole(); }
