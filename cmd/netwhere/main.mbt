@@ -6,6 +6,7 @@ let usage : String =
   #|
   #|usage:
   #|  netwhere replay FILE [--pid N] [--expect]   analyse a recording
+  #|  netwhere verify MANIFEST                    check recorded scenarios
   #|
   #|Run `netwhered record` (elevated) to make a recording.
 
@@ -19,6 +20,7 @@ async fn main {
   } else {
     match args[1] {
       "replay" => cmd_replay(args[2:])
+      "verify" => cmd_verify(args[2:])
       "help" | "--help" | "-h" => {
         println(usage)
         0

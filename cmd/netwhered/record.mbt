@@ -11,6 +11,10 @@ priv struct RecordOptions {
   decoder : @etw.Decoder
   snapshot_ms : Int32
   note : String
+  /// Recording stops once this file exists ("" = not used).
+  stop_file : String
+  /// Created once the ETW session runs ("" = not used).
+  ready_file : String
 }
 
 ///|
@@ -204,6 +208,9 @@ async fn record(opts : RecordOptions) -> Int32 {
       return 2
     }
   }
+  if opts.ready_file != "" {
+    @fs.write_file(opts.ready_file, "ready")
+  }
   let reader = @etw.Reader::new()
   let ctl = @client.Controller::new(addr=opts.controller, secret=opts.secret)
   let drain = fn() {
@@ -263,6 +270,9 @@ async fn record(opts : RecordOptions) -> Int32 {
         rec.flush(file)
         if opts.secs > 0 &&
           now - started > opts.secs.to_int64() * @ledger.ticks_per_second {
+          break
+        }
+        if opts.stop_file != "" && @fs.exists(opts.stop_file) {
           break
         }
       }

@@ -2,6 +2,7 @@ import {
   "shop1111/netwhere/internal/cli",
   "shop1111/netwhere/ledger",
   "shop1111/netwhere/report",
+  "shop1111/netwhere/scenario",
   "shop1111/netwhere/sys",
   "moonbitlang/async",
   "moonbitlang/async/fs",

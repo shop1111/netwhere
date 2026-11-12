@@ -5,6 +5,7 @@ let usage : String =
   #|usage:
   #|  netwhered record --out FILE [--secs N] [--controller HOST:PORT] [--secret S]
   #|                   [--decoder shadow|fast|tdh] [--snapshot-ms N] [--note TEXT]
+  #|                   [--stop-file PATH] [--ready-file PATH]
   #|
   #|  record   write an NDJSON recording of ETW events, Mihomo snapshots and
   #|           log lines and route facts (Ctrl+C stops; --secs 0 = until Ctrl+C)
@@ -15,7 +16,7 @@ async fn cmd_record(args : ArrayView[String]) -> Int32 {
     args,
     with_value=[
       "--out", "--secs", "--controller", "--secret", "--decoder", "--snapshot-ms",
-      "--note",
+      "--note", "--stop-file", "--ready-file",
     ],
     switches=[],
   ) catch {
@@ -51,6 +52,8 @@ async fn cmd_record(args : ArrayView[String]) -> Int32 {
     decoder,
     snapshot_ms,
     note: a.get("--note", ""),
+    stop_file: a.get("--stop-file", ""),
+    ready_file: a.get("--ready-file", ""),
   })
 }
 

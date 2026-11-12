@@ -1,0 +1,57 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/scenario"
+
+import {
+  "moonbitlang/core/debug",
+  "shop1111/netwhere/ledger",
+}
+
+// Values
+pub fn check(Manifest, @ledger.Recording) -> Array[(String, Outcome)]
+
+pub fn outcome_text(Array[(String, Outcome)]) -> String
+
+pub fn parse_manifest(StringView) -> Manifest raise ManifestError
+
+// Errors
+#derive(@debug.Debug)
+pub(all) suberror ManifestError {
+  ManifestError(String)
+}
+pub impl Show for ManifestError
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct Expect {
+  process : String
+  entry : String
+  exit : String
+  down_min : Int64
+  only : Bool
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Manifest {
+  mode : String
+  recording : String
+  scenarios : Array[Scenario]
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Outcome {
+  Pass(String)
+  Fail(String)
+  Skip(String)
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Scenario {
+  name : String
+  pid : Int32
+  exit_code : Int32
+  expect : Array[Expect]
+}
+
+// Type aliases
+
+// Traits

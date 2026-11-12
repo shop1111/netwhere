@@ -1,0 +1,13 @@
+import {
+  "shop1111/netwhere/ledger",
+  "shop1111/netwhere/report",
+  "moonbitlang/core/json",
+}
+
+import {
+  "shop1111/netwhere/ledger",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+} for "test"
+
+warnings = "-79"
