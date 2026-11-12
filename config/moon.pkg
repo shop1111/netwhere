@@ -1,0 +1,10 @@
+import {
+  "shop1111/netwhere/rules",
+  "moonbitlang/core/json",
+}
+
+import {
+  "shop1111/netwhere/rules",
+} for "test"
+
+warnings = "-79"

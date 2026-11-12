@@ -1,0 +1,51 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/config"
+
+import {
+  "moonbitlang/core/debug",
+  "shop1111/netwhere/rules",
+}
+
+// Values
+pub fn default() -> Config
+
+pub let max_config_bytes : Int32
+
+pub fn multiplier_from_name(String) -> Double?
+
+pub fn parse(String) -> Config raise ConfigError
+
+pub fn parse_pattern(String) -> @rules.DomainPattern?
+
+pub fn pattern_text(@rules.DomainPattern) -> String
+
+// Errors
+#derive(@debug.Debug)
+pub(all) suberror ConfigError {
+  ConfigError(String)
+}
+pub impl Show for ConfigError
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct Config {
+  controller : String
+  secret : String
+  rules : Array[UserRule]
+  multipliers : Map[String, Double]
+  retention_days : Int32
+}
+pub fn Config::apply_rules(Self, @rules.RuleSet) -> Unit
+pub fn Config::multiplier(Self, String) -> Double
+pub fn Config::to_text(Self) -> String
+
+#derive(Eq, @debug.Debug)
+pub(all) struct UserRule {
+  app : String
+  process : String
+  domain : @rules.DomainPattern?
+}
+
+// Type aliases
+
+// Traits

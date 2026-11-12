@@ -1,0 +1,105 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/mailbox"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub let finish_delay : Int64
+
+pub let max_active_traces : Int32
+
+pub let max_message_bytes : Int32
+
+pub let max_trace : Int64
+
+pub fn parse_message(String) -> Message raise MessageError
+
+pub let ready_timeout : Int64
+
+pub let root_confirm_timeout : Int64
+
+pub fn state_name(State) -> String
+
+// Errors
+#derive(@debug.Debug)
+pub(all) suberror MessageError {
+  MessageError(String)
+}
+
+// Types and methods
+pub(all) struct Checks {
+  client_problem : (Int32) -> String?
+  parent_of : (Int32) -> Int32?
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Effect {
+  Changed(String)
+  Track(String, Int32)
+  Narrow(String, Int32)
+  Finish(String)
+  Pause
+  Resume
+}
+
+pub struct Inbox {
+  requests : Map[String, Request]
+}
+pub fn Inbox::apply(Self, Message, Int64, Checks) -> Array[Effect]
+pub fn Inbox::forget(Self, Int64, Int64) -> Unit
+pub fn Inbox::new() -> Self
+pub fn Inbox::tick(Self, Int64, Checks) -> Array[Effect]
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Kind {
+  Trace
+  Pause
+  Resume
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Message {
+  id : String
+  kind : Kind
+  op : Op
+  client_pid : Int32
+  root_pid : Int32
+}
+pub fn Message::to_json_text(Self) -> String
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Op {
+  Start
+  Root
+  Done
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Request {
+  id : String
+  kind : Kind
+  client_pid : Int32
+  mut root_pid : Int32
+  mut state : State
+  mut reason : String
+  created : Int64
+  mut updated : Int64
+  mut unconfirmed_root : (Int32, Int64)?
+  mut done_at : Int64
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum State {
+  Ready
+  Running
+  Finishing
+  Complete
+  Rejected
+  Expired
+}
+
+// Type aliases
+
+// Traits
