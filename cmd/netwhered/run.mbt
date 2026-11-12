@@ -251,7 +251,15 @@ fn Live::apply_effects(self : Live, fx : Array[@mailbox.Effect]) -> Unit {
   for e in fx {
     match e {
       Track(id, pid) => self.traces[id] = pid
-      Narrow(id, root) => self.traces[id] = root
+      Narrow(id, root) => {
+        self.traces[id] = root
+        // The root is still suspended: its image can always be read now,
+        // even when no process-start event will arrive (degraded mode).
+        if self.engine.image_of(root) is None &&
+          @sys.process_name(root) is Some(image) {
+          self.engine.seed_process(root, image)
+        }
+      }
       Finish(id) => {
         let req = self.inbox.requests.get(id)
         match (self.traces.get(id), req) {

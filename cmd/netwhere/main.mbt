@@ -31,6 +31,7 @@ async fn main {
   } else {
     match args[1] {
       "status" => cmd_status(args[2:])
+      "trace" => cmd_trace(args[2:])
       "report" => cmd_report(args[2:])
       "unknown" => cmd_unknown(args[2:])
       "export" => cmd_export(args[2:])
