@@ -1,0 +1,353 @@
+// Synthetic scenarios modelled on the M0 probe experiments (PROBE.md).
+// Addresses and ports follow the probe; node names are placeholders.
+
+///|
+let t0 : Int64 = 134389774848293434L
+
+///|
+let sec : Int64 = 10_000_000L
+
+///|
+let core_pid : Int32 = 14948
+
+///|
+let curl_pid : Int32 = 17716
+
+///|
+fn ipa(s : String) -> @netaddr.IpAddr {
+  @netaddr.IpAddr::parse(s).unwrap()
+}
+
+///|
+fn net(
+  t : Int64,
+  id : Int32,
+  pid : Int32,
+  sa : String,
+  sp : Int32,
+  da : String,
+  dp : Int32,
+  size : Int32,
+) -> @ledger.Record {
+  Net({ t: t0 + t, id, pid, size, saddr: sa, sport: sp, daddr: da, dport: dp, })
+}
+
+///|
+fn header(tun~ : Bool = false) -> @ledger.Header {
+  {
+    version: 1,
+    t0,
+    note: "synthetic",
+    devices: @ledger.DeviceMap::new([("\\Device\\HarddiskVolume3", "C:")]),
+    cores: [{ pid: core_pid, name: "FlClashCore.exe", }],
+    tun: if tun {
+      [
+        {
+          if_index: 42,
+          if_name: "FlClash",
+          prefixes: [@netaddr.Cidr::parse("198.18.0.1/30").unwrap()],
+        },
+      ]
+    } else {
+      []
+    },
+    listeners: [
+      { addr: ipa("127.0.0.1"), port: 7890, pid: core_pid, },
+      { addr: ipa("127.0.0.1"), port: 5000, pid: 999, },
+    ],
+  }
+}
+
+///|
+fn curl_start(t : Int64) -> @ledger.Record {
+  ProcStart({
+    t: t0 + t,
+    pid: curl_pid,
+    ppid: 20008,
+    create_time: t0 + t,
+    image: "\\Device\\HarddiskVolume3\\Windows\\System32\\curl.exe",
+  })
+}
+
+///|
+fn snapshot(t : Int64, body : String) -> @ledger.Record raise {
+  MihomoSnapshot(t0 + t, @json.parse(body))
+}
+
+///|
+fn describe(f : @ledger.FlowSummary) -> String {
+  "\{@ledger.base_name(f.process)} \{f.proto} \{f.peer} entry=\{f.entry} exit=\{f.exit} domain=\{f.domain} up=\{f.up} down=\{f.down}" +
+  (if f.inconsistent { " INCONSISTENT" } else { "" })
+}
+
+///|
+fn run(h : @ledger.Header, records : Array[@ledger.Record]) -> @ledger.Engine {
+  let (engine, _) = @ledger.replay({ header: h, records, })
+  engine
+}
+
+///|
+test "system proxy: app socket counted once, exit from the snapshot" {
+  let e = run(header(), [
+    curl_start(0L),
+    // curl -> 127.0.0.1:7890 (app side, counted)
+    net(1L, 12, curl_pid, "127.0.0.1", 64607, "127.0.0.1", 7890, 0),
+    net(2L, 10, curl_pid, "127.0.0.1", 64607, "127.0.0.1", 7890, 950),
+    net(3L, 11, curl_pid, "127.0.0.1", 64607, "127.0.0.1", 7890, 20_035_300),
+    // the core's side of the same loopback connection (mirror, dropped)
+    net(2L, 11, core_pid, "127.0.0.1", 7890, "127.0.0.1", 64607, 950),
+    net(3L, 10, core_pid, "127.0.0.1", 7890, "127.0.0.1", 64607, 20_035_300),
+    // the core's connection to the node (separate total)
+    net(
+      3L, 11, core_pid, "10.0.0.5", 55738, "203.0.113.7", 443, 20_109_000,
+    ),
+    snapshot(
+      2L * sec,
+      (
+        #|{"downloadTotal":1,"uploadTotal":1,"connections":[{"id":"a","metadata":{
+        #| "network":"tcp","type":"HTTP","sourceIP":"127.0.0.1","sourcePort":"64607",
+        #| "host":"speed.cloudflare.com","process":"curl.exe"},
+        #| "start":"2026-11-13T01:18:04.8293434+08:00",
+        #| "chains":["HK 01","Proxy"],"rule":"Match","rulePayload":""}]}
+      ),
+    ),
+  ])
+  let flows = e.flows()
+  inspect(
+    flows.map(describe).join("\n"),
+    content="curl.exe tcp 127.0.0.1:7890 entry=proxy-port exit=node:HK 01 domain=speed.cloudflare.com up=950 down=20035300",
+  )
+  inspect(flows[0].group + " " + flows[0].rule, content="Proxy Match")
+  let t = e.totals()
+  assert_eq(t.dropped_mirror, 20_036_250L)
+  assert_eq(t.core_outbound_down, 20_109_000L)
+  assert_eq(t.unknown_exit, 0L)
+}
+
+///|
+test "direct and lan flows never enter the core; domain from dns" {
+  let e = run(header(), [
+    curl_start(0L),
+    Dns({
+      t: t0 + 1L,
+      id: 3008,
+      header_pid: curl_pid,
+      client_pid: None,
+      name: "speed.cloudflare.com",
+      status: 0,
+      results: "104.16.1.1;2606:4700::6810:101;",
+    }),
+    net(2L, 11, curl_pid, "10.0.0.5", 50001, "104.16.1.1", 443, 5000),
+    net(
+      3L, 27, curl_pid, "2001:db8::2", 50002, "2606:4700:0:0:0:0:6810:101", 443,
+      7000,
+    ),
+    net(4L, 43, curl_pid, "192.168.1.1", 53, "192.168.1.20", 50003, 120),
+  ])
+  inspect(
+    e.flows().map(describe).join("\n"),
+    content=(
+      #|curl.exe tcp 104.16.1.1:443 entry=direct exit=- domain=speed.cloudflare.com up=0 down=5000
+      #|curl.exe tcp [2606:4700::6810:101]:443 entry=direct exit=- domain=speed.cloudflare.com up=0 down=7000
+      #|curl.exe udp 192.168.1.1:53 entry=lan exit=- domain= up=0 down=120
+    ),
+  )
+  assert_eq(e.flows()[0].domain_source, FromProcessDns)
+}
+
+///|
+test "other processes' dns is a weaker domain source" {
+  let e = run(header(), [
+    Dns({
+      t: t0,
+      id: 3020,
+      header_pid: 2504,
+      client_pid: Some(31337),
+      name: "cdn.example.net",
+      status: 0,
+      results: "93.184.216.34;",
+    }),
+    net(1L, 11, curl_pid, "10.0.0.5", 50010, "93.184.216.34", 443, 10),
+  ])
+  let f = e.flows()[0]
+  inspect(f.domain, content="cdn.example.net")
+  assert_eq(f.domain_source, FromAnyDns)
+  // Unknown image: the flow is still reported, under its pid.
+  inspect(f.process, content="pid:17716")
+}
+
+///|
+test "tun: fake-ip flow joins by source port; core mirror on tun dropped; ipv6 bypasses" {
+  let e = run(header(tun=true), [
+    curl_start(0L),
+    Dns({
+      t: t0 + 1L,
+      id: 3008,
+      header_pid: curl_pid,
+      client_pid: None,
+      name: "speed.cloudflare.com",
+      status: 0,
+      results: "198.18.0.13;",
+    }),
+    Route({
+      t: t0 + 2L,
+      dst: ipa("198.18.0.13"),
+      if_index: 42,
+      if_name: "FlClash",
+      via_tun: true,
+    }),
+    Route({
+      t: t0 + 2L,
+      dst: ipa("2606:4700::1"),
+      if_index: 2,
+      if_name: "WLAN",
+      via_tun: false,
+    }),
+    net(2L, 10, curl_pid, "198.18.0.1", 50211, "198.18.0.13", 443, 818),
+    net(3L, 11, curl_pid, "198.18.0.1", 50211, "198.18.0.13", 443, 20_035_800),
+    // system stack: the core appears as 198.18.0.1:7890 <-> 198.18.0.2:10000
+    net(3L, 10, core_pid, "198.18.0.1", 7890, "198.18.0.2", 10000, 20_035_800),
+    // IPv6 default route is not TUN on the probe machine
+    net(4L, 27, curl_pid, "2001:db8::2", 50300, "2606:4700::1", 443, 8_000_000),
+    snapshot(
+      sec,
+      (
+        #|{"connections":[{"id":"t","metadata":{"network":"tcp","type":"Tun",
+        #| "sourceIP":"198.18.0.1","sourcePort":"50211","host":"speed.cloudflare.com",
+        #| "process":"curl.exe"},"start":"2026-11-13T01:18:04.8293434+08:00",
+        #| "chains":["TW 03","Proxy"],"rule":"Match","rulePayload":""}]}
+      ),
+    ),
+  ])
+  inspect(
+    e.flows().map(describe).join("\n"),
+    content=(
+      #|curl.exe tcp 198.18.0.13:443 entry=tun exit=node:TW 03 domain=speed.cloudflare.com up=818 down=20035800
+      #|curl.exe tcp [2606:4700::1]:443 entry=direct exit=- domain= up=0 down=8000000
+    ),
+  )
+  assert_eq(e.totals().dropped_mirror, 20_035_800L)
+  assert_true(e.core_present())
+}
+
+///|
+test "short connection missing from snapshots is resolved from the log" {
+  let e = run(header(), [
+    curl_start(0L),
+    net(1L, 10, curl_pid, "127.0.0.1", 63010, "127.0.0.1", 7890, 517),
+    net(2L, 11, curl_pid, "127.0.0.1", 63010, "127.0.0.1", 7890, 2900),
+    MihomoLog(
+      t0 + 1L,
+      "[TCP] 127.0.0.1:63010(curl.exe) --> www.baidu.com:443 match DomainSuffix(baidu.com) using Bypass[DIRECT]",
+    ),
+  ])
+  let f = e.flows()[0]
+  inspect(
+    describe(f),
+    content="curl.exe tcp 127.0.0.1:7890 entry=proxy-port exit=core-direct domain=www.baidu.com up=517 down=2900",
+  )
+  inspect(f.rule, content="DomainSuffix(baidu.com)")
+}
+
+///|
+test "join respects process name and time window" {
+  let e = run(header(), [
+    curl_start(0L),
+    net(0L, 10, curl_pid, "127.0.0.1", 63020, "127.0.0.1", 7890, 100),
+    // Same port, wrong process.
+    MihomoLog(
+      t0, "[TCP] 127.0.0.1:63020(git.exe) --> a.test:443 match Match using Node A",
+    ),
+    // Same port and process, but a minute later: a reused port.
+    MihomoLog(
+      t0 + 60L * sec,
+      "[TCP] 127.0.0.1:63020(curl.exe) --> b.test:443 match Match using Node B",
+    ),
+  ])
+  inspect(
+    describe(e.flows()[0]),
+    content="curl.exe tcp 127.0.0.1:7890 entry=proxy-port exit=unknown domain= up=100 down=0",
+  )
+  assert_eq(e.totals().unknown_exit, 100L)
+}
+
+///|
+test "long tun flow without any core record is inconsistent" {
+  let e = run(header(tun=true), [
+    Route({
+      t: t0,
+      dst: ipa("140.82.112.3"),
+      if_index: 42,
+      if_name: "FlClash",
+      via_tun: true,
+    }),
+    net(0L, 10, curl_pid, "198.18.0.1", 51000, "140.82.112.3", 443, 100),
+    net(5L * sec, 11, curl_pid, "198.18.0.1", 51000, "140.82.112.3", 443, 100),
+  ])
+  let f = e.flows()[0]
+  assert_true(f.inconsistent)
+  assert_eq(f.exit, Unknown)
+}
+
+///|
+test "loopback between ordinary processes is not traffic" {
+  let e = run(header(), [
+    net(0L, 10, curl_pid, "127.0.0.1", 60000, "127.0.0.1", 5000, 300),
+    net(0L, 11, 999, "127.0.0.1", 5000, "127.0.0.1", 60000, 300),
+  ])
+  assert_eq(e.flows().length(), 0)
+  assert_eq(e.totals().dropped_loopback, 600L)
+}
+
+///|
+test "minute rows and classification" {
+  let rules = @rules.RuleSet::new()
+  rules.add_domain(Builtin, Suffix("cloudflare.com"), "Cloudflare")
+  let minute = 60L * sec
+  let e = run(header(), [
+    curl_start(0L),
+    Dns({
+      t: t0,
+      id: 3008,
+      header_pid: curl_pid,
+      client_pid: None,
+      name: "speed.cloudflare.com",
+      status: 0,
+      results: "104.16.1.1;",
+    }),
+    net(0L, 11, curl_pid, "10.0.0.5", 50001, "104.16.1.1", 443, 1000),
+    net(minute, 11, curl_pid, "10.0.0.5", 50001, "104.16.1.1", 443, 2000),
+    net(minute, 10, curl_pid, "10.0.0.5", 50001, "104.16.1.1", 443, 50),
+    net(minute, 11, curl_pid, "10.0.0.5", 50002, "93.184.216.34", 443, 7),
+  ])
+  let rows = e.usage_rows(rules)
+  inspect(
+    rows
+    .map(r => {
+      "\{r.minute - t0 / minute} \{r.app} \{r.process} \{r.domain} \{r.entry} up=\{r.up} down=\{r.down}"
+    })
+    .join("\n"),
+    content=(
+      #|0 Cloudflare curl.exe speed.cloudflare.com direct up=0 down=1000
+      #|1 Cloudflare curl.exe speed.cloudflare.com direct up=50 down=2000
+      #|1 Unknown curl.exe  direct up=0 down=7
+    ),
+  )
+}
+
+///|
+test "process tree for trace" {
+  let start = fn(pid : Int32, ppid : Int32) -> @ledger.Record {
+    ProcStart({ t: t0, pid, ppid, create_time: t0, image: "x.exe", })
+  }
+  let e = run(header(), [
+    start(100, 1),
+    start(101, 100),
+    start(102, 101),
+    start(103, 101),
+    start(200, 1),
+  ])
+  let tree = e.process_tree(100)
+  tree.sort()
+  assert_eq(tree, [100, 101, 102, 103])
+}

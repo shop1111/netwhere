@@ -1,0 +1,36 @@
+﻿== TUN adapters
+
+Name    InterfaceDescription ifIndex Status
+----    -------------------- ------- ------
+FlClash Meta Tunnel               55 Up    
+
+
+
+== IP of TUN
+
+IPAddress  PrefixLength
+---------  ------------
+198.18.0.1           30
+
+
+
+== default routes
+
+DestinationPrefix InterfaceAlias RouteMetric
+----------------- -------------- -----------
+0.0.0.0/0         FlClash                  0
+0.0.0.0/0         WLAN                     0
+::/0              WLAN                   256
+
+
+
+== DNS servers
+
+InterfaceAlias ServerAddresses     
+-------------- ---------------     
+FlClash        {198.18.0.2}        
+WLAN           {<DNS-server>, <DNS-server>}
+
+
+
+== system proxy: ProxyEnable=0 ProxyServer=127.0.0.1:7890

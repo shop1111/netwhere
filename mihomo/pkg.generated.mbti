@@ -1,0 +1,93 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/mihomo"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+  "shop1111/netwhere/netaddr",
+}
+
+// Values
+pub fn decode_configs(@json.Json) -> CoreConfig raise DecodeError
+
+pub fn decode_log_message(@json.Json) -> LogMessage raise DecodeError
+
+pub fn decode_snapshot(@json.Json) -> Snapshot raise DecodeError
+
+pub fn parse_conn_log(StringView) -> ConnLog?
+
+pub fn parse_log_message(StringView) -> LogMessage raise DecodeError
+
+pub fn parse_rfc3339(StringView) -> Int64?
+
+pub fn parse_snapshot(StringView) -> Snapshot raise DecodeError
+
+pub fn split_chain(StringView) -> (String, String)
+
+// Errors
+#derive(@debug.Debug)
+pub(all) suberror DecodeError {
+  DecodeError(String)
+}
+pub impl Show for DecodeError
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct Conn {
+  id : String
+  network : String
+  inbound_type : String
+  source : @netaddr.IpAddr?
+  source_port : Int32
+  dest_ip : @netaddr.IpAddr?
+  dest_port : Int32
+  host : String
+  process : String
+  process_path : String
+  upload : Int64
+  download : Int64
+  start : Int64?
+  chains : Array[String]
+  rule : String
+  rule_payload : String
+}
+pub fn Conn::outbound(Self) -> String
+
+#derive(Eq, @debug.Debug)
+pub(all) struct ConnLog {
+  network : String
+  source : @netaddr.IpAddr
+  source_port : Int32
+  process : String
+  dest_host : String
+  dest_port : Int32
+  rule : String
+  rule_payload : String
+  group : String
+  outbound : String
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct CoreConfig {
+  ports : Array[Int32]
+  tun_enabled : Bool
+  tun_device : String
+  tun_prefixes : Array[@netaddr.Cidr]
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct LogMessage {
+  level : String
+  payload : String
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Snapshot {
+  download_total : Int64
+  upload_total : Int64
+  conns : Array[Conn]
+}
+
+// Type aliases
+
+// Traits

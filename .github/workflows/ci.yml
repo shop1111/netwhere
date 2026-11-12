@@ -1,0 +1,47 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hustcer/setup-moonbit@v1.22
+        with:
+          version: '0.10.20+65efd5b93'
+          core-version: '0.10.20+65efd5b93'
+      - name: Toolchain
+        run: |
+          moon version --all
+          moon update
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Format, check, test, interface
+        run: |
+          moon fmt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git diff --exit-code -- '*.mbt'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          moon check --target native --deny-warn
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          moon test --target native --deny-warn
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          moon info --target native
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git diff --exit-code -- '*.mbti'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Spikes and probe still build
+        run: |
+          foreach ($dir in @('etwprobe', 'spikes/sqlite', 'spikes/mihomo_ws')) {
+            Push-Location $dir
+            moon build --target native
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Pop-Location
+          }

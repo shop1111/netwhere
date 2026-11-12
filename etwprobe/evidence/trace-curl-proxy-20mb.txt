@@ -1,0 +1,19 @@
+
+==== trace: curl.exe -s -o NUL -o NUL -x http://127.0.0.1:7890 --rate 1/12s --limit-rate 4M https://speed.cloudflare.com/__down?bytes=20000000 https://speed.cloudflare.com/__down?bytes=0
+root pid 11872, exit code 0, ran 12.15 s
+process tree (1):
+  pid 11872  parent 17016  curl.exe
+DNS answers seen for the tree (0):
+flows of the tree:
+  tcp 127.0.0.1:7890                 PROXY-PORT  send 950 B      recv 19565.8 KB conns 1 sport 64607 
+loopback peer process: pid 14948 FlClashCore.exe
+  peer outbound <proxy-node>                      send 64.4 KB    recv 19638.8 KB
+  peer outbound 104.26.13.125:443                        send 798 B      recv 3860 B
+  peer outbound 120.53.53.53:443                         send 97 B       recv 569 B
+totals by route:
+  PROXY-PORT  send 950 B recv 19565.8 KB
+---- consumer statistics
+events: 6313 (net 6276, dns 4, process 33, other 0) over 15 s = 416/s
+dropped records: 0; TDH decode failures: 0; max queue: 161 KB; queued total: 0.52 MB
+callback cost: 3696 ns/event (TDH generic decoding, includes queue append)
+probe process: cpu 46 ms, private 34.32 MB, working set 8.93 MB, peak WS 18.43 MB

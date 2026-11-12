@@ -1,0 +1,54 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/route"
+
+import {
+  "moonbitlang/core/debug",
+  "shop1111/netwhere/netaddr",
+}
+
+// Values
+pub fn best_route(@netaddr.IpAddr) -> BestRoute raise RouteError
+
+pub fn dos_devices() -> Array[(String, String)] raise RouteError
+
+pub fn interfaces() -> Array[Interface] raise RouteError
+
+pub fn tcp_listeners() -> Array[TcpListener] raise RouteError
+
+// Errors
+#derive(@debug.Debug)
+pub(all) suberror RouteError {
+  RouteError(op~ : String, code~ : Int32)
+}
+pub impl Show for RouteError
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct BestRoute {
+  if_index : Int32
+  if_name : String
+  prefix_len : Int32
+  next_hop : @netaddr.IpAddr?
+  source : @netaddr.IpAddr?
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Interface {
+  if_index : Int32
+  if_type : Int32
+  up : Bool
+  name : String
+  description : String
+  prefixes : Array[@netaddr.Cidr]
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct TcpListener {
+  addr : @netaddr.IpAddr
+  port : Int32
+  pid : Int32
+}
+
+// Type aliases
+
+// Traits

@@ -1,0 +1,23 @@
+fatal: unable to access 'https://github.com/moonbitlang/core.git/': Recv failure: Connection was reset
+
+==== trace: git ls-remote https://github.com/moonbitlang/core.git HEAD
+root pid 15152, exit code 128, ran 21.02 s
+process tree (4):
+  pid 15152  parent 12688  ?
+  pid 16060  parent 15152  git.exe
+  pid 1184   parent 16060  git.exe
+  pid 20888  parent 1184   git-remote-https.exe
+DNS answers seen for the tree (1):
+  github.com -> ::ffff:20.205.243.166;
+flows of the tree:
+  tcp 20.205.243.166:443             direct      send 446 B      recv 3094 B     conns 1 sport 61369 github.com
+  tcp 127.0.0.1:61368                loopback    send 1 B        recv 9 B        conns 1 sport 61367 
+  tcp 127.0.0.1:61367                loopback    send 9 B        recv 1 B        conns 1 sport 61368 
+totals by route:
+  direct      send 446 B recv 3094 B
+  loopback    send 10 B recv 10 B
+---- consumer statistics
+events: 643 (net 611, dns 22, process 10, other 0) over 24 s = 27/s
+dropped records: 0; TDH decode failures: 0; max queue: 7248 B; queued total: 0.06 MB
+callback cost: 16377 ns/event (TDH generic decoding, includes queue append)
+probe process: cpu 15 ms, private 34.47 MB, working set 8.79 MB, peak WS 14.88 MB

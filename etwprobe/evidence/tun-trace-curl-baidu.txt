@@ -1,0 +1,17 @@
+
+==== trace: curl.exe -s -o NUL --noproxy * https://www.baidu.com
+root pid 6252, exit code 0, ran 0.12 s
+process tree (1):
+  pid 6252   parent 22660  curl.exe
+DNS answers seen for the tree (2):
+  www.baidu.com -> 198.18.0.10;
+  www.baidu.com -> type: 5 www.a.shifen.com;2408:8756:c52:15df:0:ff:b073:d207;2408:8756:c52:1a18:0:ff:b030:7606;
+flows of the tree:
+  tcp 2408:8756:c52:15df:0:ff:b073:d207:443 direct      send 723 B      recv 7214 B     conns 1 sport 50201 www.baidu.com
+totals by route:
+  direct      send 723 B recv 7214 B
+---- consumer statistics
+events: 583 (net 438, dns 143, process 2, other 0) over 3 s = 186/s
+dropped records: 0; TDH decode failures: 0; max queue: 40.8 KB; queued total: 0.05 MB
+callback cost: 24932 ns/event (TDH generic decoding, includes queue append)
+probe process: cpu 31 ms, private 34.31 MB, working set 9.54 MB, peak WS 15.6 MB

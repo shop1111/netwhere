@@ -1,0 +1,5 @@
+options(
+  "native-stub": [ "sys_stub.c" ],
+)
+
+warnings = "-79"

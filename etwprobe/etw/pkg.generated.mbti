@@ -1,0 +1,111 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/etwprobe/etw"
+
+// Values
+pub const ProviderDns : Int32 = 2
+
+pub const ProviderNet : Int32 = 1
+
+pub const ProviderProcess : Int32 = 3
+
+pub fn abandon() -> Unit
+
+pub fn child_exit_code() -> Int32
+
+pub fn child_wait(Int32) -> Int32
+
+pub fn image_name(Int32) -> String
+
+pub fn is_elevated() -> Int32
+
+pub fn now_ms() -> Double
+
+pub fn provider_name(Int32) -> String
+
+pub fn query() -> FixedArray[Int64]?
+
+pub fn self_usage() -> FixedArray[Int64]
+
+pub fn session_exists(String) -> Int32
+
+pub fn sleep_ms(Int32) -> Unit
+
+pub fn spawn(String) -> Int32
+
+pub fn start(String, net? : Bool, dns? : Bool, process? : Bool) -> Unit raise EtwError
+
+pub fn stats() -> Stats
+
+pub fn stop() -> Int32
+
+// Errors
+pub(all) suberror EtwError {
+  StartFailed(stage~ : String, code~ : Int32)
+}
+pub fn EtwError::message(Self) -> String
+
+// Types and methods
+pub(all) struct Event {
+  provider : Int32
+  id : Int32
+  version : Int32
+  opcode : Int32
+  pid : Int32
+  tid : Int32
+  timestamp : Int64
+  schema : Schema
+  values : Array[Value]
+}
+pub fn Event::get(Self, String) -> Value?
+pub fn Event::int(Self, String) -> Int64?
+pub fn Event::key(Self) -> String
+pub fn Event::str(Self, String) -> String?
+
+pub struct Reader {
+  buf : FixedArray[Byte]
+  schemas : Map[Int32, Schema]
+  mut unknown_schema : Int32
+}
+pub fn Reader::drain(Self) -> Array[Event]
+pub fn Reader::new(capacity? : Int32) -> Self
+pub fn Reader::unknown_schema(Self) -> Int32
+
+pub(all) struct Schema {
+  task : String
+  opcode : String
+  names : Array[String]
+}
+
+pub(all) struct Stats {
+  events : Int64
+  net : Int64
+  dns : Int64
+  process : Int64
+  dropped : Int64
+  queued_bytes : Int64
+  callback_ns : Int64
+  max_queue : Int64
+  decode_fail : Int64
+  stale_sessions : Int64
+  other : Int64
+}
+
+pub(all) enum Value {
+  UInt(UInt64)
+  Int(Int64)
+  Str(String)
+  Raw(Bytes)
+  Ip(String)
+  Port(Int32)
+  Bool(Bool)
+  FileTime(Int64)
+  Guid(Bytes)
+  Missing(Int32)
+}
+pub fn Value::as_int(Self) -> Int64?
+pub fn Value::as_string(Self) -> String?
+pub fn Value::render(Self) -> String
+
+// Type aliases
+
+// Traits

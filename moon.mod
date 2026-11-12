@@ -1,0 +1,15 @@
+name = "shop1111/netwhere"
+
+version = "0.0.1"
+
+readme = "README.md"
+
+license = "Apache-2.0"
+
+keywords = [ "windows", "etw", "network", "traffic", "mihomo" ]
+
+description = "Windows per-app traffic route ledger: where each program's traffic goes (direct, proxy node, TUN, LAN), from ETW plus optional Mihomo enrichment."
+
+preferred_target = "native"
+
+supported_targets = [ "native" ]

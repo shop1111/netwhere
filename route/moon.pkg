@@ -1,0 +1,14 @@
+import {
+  "shop1111/netwhere/netaddr",
+  "moonbitlang/core/encoding/utf8",
+}
+
+import {
+  "shop1111/netwhere/netaddr",
+} for "test"
+
+options(
+  "native-stub": [ "route_stub.c" ],
+)
+
+warnings = "-79"

@@ -1,0 +1,16 @@
+
+==== trace: powershell.exe -NoProfile -Command "Invoke-WebRequest https://www.bing.com -UseBasicParsing | Out-Null"
+root pid 25116, exit code 0, ran 1.01 s
+process tree (1):
+  pid 25116  parent 27996  ?
+DNS answers seen for the tree (0):
+flows of the tree:
+  tcp 127.0.0.1:7890                 PROXY-PORT  send 2014 B     recv 34.2 KB    conns 2 sport 61373,61376 
+loopback peer process: pid 14948 FlClashCore.exe
+totals by route:
+  PROXY-PORT  send 2014 B recv 34.2 KB
+---- consumer statistics
+events: 454 (net 448, dns 4, process 2, other 0) over 4 s = 113/s
+dropped records: 0; TDH decode failures: 0; max queue: 21.4 KB; queued total: 0.04 MB
+callback cost: 12074 ns/event (TDH generic decoding, includes queue append)
+probe process: cpu 15 ms, private 34.18 MB, working set 8.63 MB, peak WS 14.63 MB

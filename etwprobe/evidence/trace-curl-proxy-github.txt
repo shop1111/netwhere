@@ -1,0 +1,17 @@
+
+==== trace: curl.exe -s -o NUL -x http://127.0.0.1:7890 https://www.github.com
+root pid 15636, exit code 0, ran 0.39 s
+process tree (1):
+  pid 15636  parent 13616  curl.exe
+DNS answers seen for the tree (0):
+flows of the tree:
+  tcp 127.0.0.1:7890                 PROXY-PORT  send 769 B      recv 3485 B     conns 1 sport 64626 
+loopback peer process: pid 14948 FlClashCore.exe
+  peer outbound <proxy-node>                      send 1074 B     recv 3761 B
+totals by route:
+  PROXY-PORT  send 769 B recv 3485 B
+---- consumer statistics
+events: 169 (net 163, dns 4, process 2, other 0) over 3 s = 50/s
+dropped records: 0; TDH decode failures: 0; max queue: 10.2 KB; queued total: 0.02 MB
+callback cost: 26933 ns/event (TDH generic decoding, includes queue append)
+probe process: cpu 15 ms, private 34.1 MB, working set 8.52 MB, peak WS 14.63 MB

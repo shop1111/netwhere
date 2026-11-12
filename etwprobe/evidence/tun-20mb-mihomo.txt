@@ -1,0 +1,13 @@
+ETW source port(s) of curl's socket to the fake IP: [50211]
+t+2s type=Tun sourceIP=198.18.0.1 sourcePort=50211 inboundPort=60251 process=curl.exe host=speed.cloudflare.com rule=Match download=170209 upload=674
+t+3s type=Tun sourceIP=198.18.0.1 sourcePort=50211 inboundPort=60251 process=curl.exe host=speed.cloudflare.com rule=Match download=5865417 upload=674
+t+4s type=Tun sourceIP=198.18.0.1 sourcePort=50211 inboundPort=60251 process=curl.exe host=speed.cloudflare.com rule=Match download=12304328 upload=674
+t+5s type=Tun sourceIP=198.18.0.1 sourcePort=50211 inboundPort=60251 process=curl.exe host=speed.cloudflare.com rule=Match download=19087304 upload=674
+t+6s type=Tun sourceIP=198.18.0.1 sourcePort=50211 inboundPort=60251 process=curl.exe host=speed.cloudflare.com rule=Match download=20034499 upload=674
+t+7s type=Tun sourceIP=198.18.0.1 sourcePort=50211 inboundPort=60251 process=curl.exe host=speed.cloudflare.com rule=Match download=20034499 upload=674
+t+8s type=Tun sourceIP=198.18.0.1 sourcePort=50211 inboundPort=60251 process=curl.exe host=speed.cloudflare.com rule=Match download=20034499 upload=674
+t+9s type=Tun sourceIP=198.18.0.1 sourcePort=50211 inboundPort=60251 process=curl.exe host=speed.cloudflare.com rule=Match download=20034499 upload=674
+t+10s type=Tun sourceIP=198.18.0.1 sourcePort=50211 inboundPort=60251 process=curl.exe host=speed.cloudflare.com rule=Match download=20034499 upload=674
+t+11s type=Tun sourceIP=198.18.0.1 sourcePort=50211 inboundPort=60251 process=curl.exe host=speed.cloudflare.com rule=Match download=20034499 upload=674
+t+12s type=Tun sourceIP=198.18.0.1 sourcePort=50211 inboundPort=60251 process=curl.exe host=speed.cloudflare.com rule=Match download=20034499 upload=674
+t+13s type=Tun sourceIP=198.18.0.1 sourcePort=50211 inboundPort=60251 process=curl.exe host=speed.cloudflare.com rule=Match download=20034499 upload=794

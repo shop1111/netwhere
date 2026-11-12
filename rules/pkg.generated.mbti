@@ -1,0 +1,91 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/rules"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub let builtin_header : String
+
+pub fn load_builtin(RuleSet, StringView) -> Int32 raise V2flyError
+
+pub fn normalize_domain(StringView) -> String
+
+pub fn normalize_process(StringView) -> String
+
+pub fn parse_v2fly_list(String, StringView) -> V2flyList raise V2flyError
+
+pub fn resolve_v2fly(Map[String, V2flyList], String) -> Array[V2flyEntry] raise V2flyError
+
+pub fn write_builtin(Array[(String, Array[DomainPattern])], String) -> String
+
+// Errors
+#derive(@debug.Debug)
+pub(all) suberror V2flyError {
+  V2flyError(String)
+}
+pub impl Show for V2flyError
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct Classified {
+  app : String
+  origin : Origin
+  kind : MatchKind
+}
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) enum DomainPattern {
+  Suffix(String)
+  Full(String)
+  Keyword(String)
+}
+pub impl Show for DomainPattern
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) enum MatchKind {
+  ProcessAndDomain
+  ProcessOnly
+  DomainOnly
+}
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) enum Origin {
+  User
+  Builtin
+}
+
+pub struct RuleSet {
+  // private fields
+}
+pub fn RuleSet::add_domain(Self, Origin, DomainPattern, String) -> Unit
+pub fn RuleSet::add_process(Self, Origin, String, String) -> Unit
+pub fn RuleSet::add_process_domain(Self, Origin, String, DomainPattern, String) -> Unit
+pub fn RuleSet::classify(Self, String, String?) -> Classified?
+pub fn RuleSet::domain_count(Self, Origin) -> Int32
+pub fn RuleSet::new() -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) struct V2flyEntry {
+  pattern : DomainPattern
+  attrs : Array[String]
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct V2flyInclude {
+  name : String
+  filters : Array[String]
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct V2flyList {
+  name : String
+  entries : Array[V2flyEntry]
+  includes : Array[V2flyInclude]
+  regexp_skipped : Int32
+}
+
+// Type aliases
+
+// Traits

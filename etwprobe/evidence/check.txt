@@ -1,0 +1,3 @@
+[check] session MoonEtwProbe exists: 1 (1 = running)
+[check] stale sessions stopped on start: 1
+[check] exists after stop: 0

@@ -1,0 +1,7 @@
+import {
+  "shop1111/etwprobe/etw",
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+}
+
+pkgtype(kind: "executable")

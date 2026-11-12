@@ -1,0 +1,17 @@
+
+==== trace: curl.exe -s -o NUL --noproxy * https://speed.cloudflare.com/__down?bytes=5000000
+root pid 9872, exit code 0, ran 1.78 s
+process tree (1):
+  pid 9872   parent 14636  ?
+DNS answers seen for the tree (2):
+  speed.cloudflare.com -> 2606:4700:7::da;2a06:98c1:58::da;
+  speed.cloudflare.com -> 172.66.0.218;162.159.140.220;
+flows of the tree:
+  tcp 2606:4700:7:0:0:0:0:da:443     direct      send 697 B      recv 4895.5 KB  conns 1 sport 61400 
+totals by route:
+  direct      send 697 B recv 4895.5 KB
+---- consumer statistics
+events: 2171 (net 2157, dns 12, process 2, other 0) over 5 s = 453/s
+dropped records: 0; TDH decode failures: 0; max queue: 177.2 KB; queued total: 0.21 MB
+callback cost: 5594 ns/event (TDH generic decoding, includes queue append)
+probe process: cpu 46 ms, private 34.4 MB, working set 9.02 MB, peak WS 16.04 MB

@@ -1,0 +1,23 @@
+8ab5a61f89dbf733fa92972f2c8731afccc4aba2	HEAD
+
+==== trace: git ls-remote https://github.com/moonbitlang/core.git HEAD
+root pid 15324, exit code 0, ran 1.08 s
+process tree (4):
+  pid 15324  parent 23716  git.exe
+  pid 6308   parent 15324  git.exe
+  pid 24848  parent 6308   git.exe
+  pid 21016  parent 24848  git-remote-https.exe
+DNS answers seen for the tree (1):
+  github.com -> ::ffff:198.18.0.12;
+flows of the tree:
+  tcp 198.18.0.12:443                TUN-fake-ip send 1206 B     recv 298.4 KB   conns 1 sport 50206 github.com
+  tcp 127.0.0.1:50205                loopback    send 1 B        recv 9 B        conns 1 sport 50204 
+  tcp 127.0.0.1:50204                loopback    send 9 B        recv 1 B        conns 1 sport 50205 
+totals by route:
+  TUN-fake-ip send 1206 B recv 298.4 KB
+  loopback    send 10 B recv 10 B
+---- consumer statistics
+events: 672 (net 640, dns 23, process 9, other 0) over 4 s = 164/s
+dropped records: 0; TDH decode failures: 0; max queue: 41.4 KB; queued total: 0.06 MB
+callback cost: 13309 ns/event (TDH generic decoding, includes queue append)
+probe process: cpu 46 ms, private 34.38 MB, working set 8.8 MB, peak WS 14.87 MB

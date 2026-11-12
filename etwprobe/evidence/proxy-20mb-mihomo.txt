@@ -1,0 +1,14 @@
+ETW source port(s) of curl's loopback socket: [64607]
+snapshot top-level keys: ['connections', 'downloadTotal', 'memory', 'uploadTotal']
+t+2s sourcePort=64607 process=curl.exe host=speed.cloudflare.com rule=Match chains=3 (node name masked) download=215802 upload=674
+t+3s sourcePort=64607 process=curl.exe host=speed.cloudflare.com rule=Match chains=3 (node name masked) download=5177658 upload=674
+t+4s sourcePort=64607 process=curl.exe host=speed.cloudflare.com rule=Match chains=3 (node name masked) download=10273081 upload=674
+t+5s sourcePort=64607 process=curl.exe host=speed.cloudflare.com rule=Match chains=3 (node name masked) download=15319353 upload=674
+t+6s sourcePort=64607 process=curl.exe host=speed.cloudflare.com rule=Match chains=3 (node name masked) download=20033955 upload=674
+t+7s sourcePort=64607 process=curl.exe host=speed.cloudflare.com rule=Match chains=3 (node name masked) download=20033955 upload=674
+t+8s sourcePort=64607 process=curl.exe host=speed.cloudflare.com rule=Match chains=3 (node name masked) download=20033955 upload=674
+t+9s sourcePort=64607 process=curl.exe host=speed.cloudflare.com rule=Match chains=3 (node name masked) download=20033955 upload=674
+t+10s sourcePort=64607 process=curl.exe host=speed.cloudflare.com rule=Match chains=3 (node name masked) download=20033955 upload=674
+t+11s sourcePort=64607 process=curl.exe host=speed.cloudflare.com rule=Match chains=3 (node name masked) download=20033955 upload=674
+t+12s sourcePort=64607 process=curl.exe host=speed.cloudflare.com rule=Match chains=3 (node name masked) download=20033955 upload=674
+t+13s sourcePort=64607 process=curl.exe host=speed.cloudflare.com rule=Match chains=3 (node name masked) download=20033955 upload=794

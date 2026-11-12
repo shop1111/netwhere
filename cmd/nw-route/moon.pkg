@@ -1,0 +1,7 @@
+import {
+  "shop1111/netwhere/netaddr",
+  "shop1111/netwhere/route",
+  "moonbitlang/core/env",
+}
+
+pkgtype(kind: "executable")

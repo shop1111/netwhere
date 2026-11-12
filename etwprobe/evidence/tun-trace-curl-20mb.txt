@@ -1,0 +1,17 @@
+
+==== trace: curl.exe -s -o NUL -o NUL --noproxy * --rate 1/12s --limit-rate 4M https://speed.cloudflare.com/__down?bytes=20000000 https://speed.cloudflare.com/__down?bytes=0
+root pid 16204, exit code 0, ran 12.14 s
+process tree (1):
+  pid 16204  parent 17232  curl.exe
+DNS answers seen for the tree (2):
+  speed.cloudflare.com -> 198.18.0.13;
+  speed.cloudflare.com -> 2a06:98c1:58::da;2606:4700:7::da;
+flows of the tree:
+  tcp 198.18.0.13:443                TUN-fake-ip send 818 B      recv 19566.2 KB conns 1 sport 50211 speed.cloudflare.com
+totals by route:
+  TUN-fake-ip send 818 B recv 19566.2 KB
+---- consumer statistics
+events: 8975 (net 8917, dns 24, process 34, other 0) over 15 s = 593/s
+dropped records: 0; TDH decode failures: 0; max queue: 212.8 KB; queued total: 0.72 MB
+callback cost: 4709 ns/event (TDH generic decoding, includes queue append)
+probe process: cpu 93 ms, private 35.25 MB, working set 9.31 MB, peak WS 19.81 MB

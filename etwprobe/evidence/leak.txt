@@ -1,0 +1,1 @@
+[leak] started MoonEtwProbe and exiting without stopping it

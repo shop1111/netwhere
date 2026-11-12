@@ -1,0 +1,41 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/netaddr"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+#derive(Eq, Hash, @debug.Debug)
+pub(all) struct Cidr {
+  addr : IpAddr
+  len : Int32
+}
+pub fn Cidr::contains(Self, IpAddr) -> Bool
+pub fn Cidr::parse(StringView) -> Self?
+pub impl Show for Cidr
+
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub(all) enum IpAddr {
+  V4(UInt32)
+  V6(UInt64, UInt64)
+}
+pub fn IpAddr::is_link_local(Self) -> Bool
+pub fn IpAddr::is_loopback(Self) -> Bool
+pub fn IpAddr::is_multicast(Self) -> Bool
+pub fn IpAddr::is_private(Self) -> Bool
+pub fn IpAddr::is_unspecified(Self) -> Bool
+pub fn IpAddr::is_v4(Self) -> Bool
+pub fn IpAddr::parse(StringView) -> Self?
+pub fn IpAddr::to_text(Self) -> String
+pub fn IpAddr::unmap(Self) -> Self
+pub fn IpAddr::v4(Int32, Int32, Int32, Int32) -> Self
+pub impl Show for IpAddr
+
+// Type aliases
+
+// Traits

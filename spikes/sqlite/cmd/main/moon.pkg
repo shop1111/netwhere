@@ -1,0 +1,12 @@
+import {
+  "moonbit-community/sqlite3",
+  "moonbitlang/core/env",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/encoding/utf8",
+}
+
+options(
+  "native-stub": [ "keeper.c" ],
+)
+
+pkgtype(kind: "executable")

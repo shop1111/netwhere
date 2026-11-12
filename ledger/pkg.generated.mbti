@@ -1,0 +1,314 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/ledger"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/json",
+  "shop1111/netwhere/mihomo",
+  "shop1111/netwhere/netaddr",
+  "shop1111/netwhere/rules",
+}
+
+// Values
+pub fn base_name(String) -> String
+
+pub let inconsistent_after : Int64
+
+pub let join_window : Int64
+
+pub let known_core_names : Array[String]
+
+pub fn normalize_dns(RawDns) -> DnsAnswer?
+
+pub fn normalize_net(RawNet) -> NetEvent?
+
+pub fn normalize_proc_start(RawProcStart, DeviceMap) -> ProcStart
+
+pub fn parse_query_results(String) -> (Array[String], Array[@netaddr.IpAddr])
+
+pub fn parse_recording(StringView) -> Recording raise RecordError
+
+pub let record_version : Int32
+
+pub fn replay(Recording) -> (Engine, ReplayStats)
+
+pub let ticks_per_second : Int64
+
+// Errors
+#derive(@debug.Debug)
+pub(all) suberror RecordError {
+  RecordError(line~ : Int32, msg~ : String)
+}
+pub impl Show for RecordError
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct CoreProc {
+  pid : Int32
+  name : String
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct DeviceMap {
+  entries : Array[(String, String)]
+}
+pub fn DeviceMap::new(Array[(String, String)]) -> Self
+pub fn DeviceMap::to_dos_path(Self, String) -> String
+
+#derive(Eq, @debug.Debug)
+pub(all) struct DnsAnswer {
+  t : Int64
+  pid : Int32
+  name : String
+  cnames : Array[String]
+  addrs : Array[@netaddr.IpAddr]
+}
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) enum DomainSource {
+  FromCore
+  FromProcessDns
+  FromAnyDns
+  NoDomain
+}
+
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub(all) struct Endpoint {
+  addr : @netaddr.IpAddr
+  port : Int32
+}
+pub impl Show for Endpoint
+
+pub struct Engine {
+  mut core_out_up : Int64
+  mut core_out_down : Int64
+  mut dropped_mirror : Int64
+  mut dropped_loopback : Int64
+  // private fields
+}
+pub fn Engine::core_present(Self) -> Bool
+pub fn Engine::flows(Self) -> Array[FlowSummary]
+pub fn Engine::is_core(Self, Int32) -> Bool
+pub fn Engine::new(EngineEnv, cores? : Array[(Int32, String)], tun_prefixes? : Array[@netaddr.Cidr]) -> Self
+pub fn Engine::on_core_log(Self, Int64, @mihomo.ConnLog) -> Unit
+pub fn Engine::on_core_snapshot(Self, Int64, @mihomo.Snapshot) -> Unit
+pub fn Engine::on_dns(Self, DnsAnswer) -> Unit
+pub fn Engine::on_net(Self, NetEvent) -> Unit
+pub fn Engine::on_proc_start(Self, ProcStart) -> Unit
+pub fn Engine::process_tree(Self, Int32) -> Array[Int32]
+pub fn Engine::seed_process(Self, Int32, String) -> Unit
+pub fn Engine::totals(Self) -> Totals
+pub fn Engine::usage_rows(Self, @rules.RuleSet) -> Array[UsageRow]
+
+pub(all) struct EngineEnv {
+  via_tun : (@netaddr.IpAddr) -> Bool
+  listener_pid : (@netaddr.IpAddr, Int32) -> Int32?
+}
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) enum Entry {
+  ProxyPort
+  Tun
+  Direct
+  Lan
+}
+pub impl Show for Entry
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) enum Exit {
+  Node(String)
+  CoreDirect
+  CoreReject
+  Unknown
+  NotProxied
+}
+pub impl Show for Exit
+
+#derive(Eq, @debug.Debug)
+pub(all) struct FlowSummary {
+  pid : Int32
+  process : String
+  proto : Proto
+  sock : Endpoint
+  peer : Endpoint
+  entry : Entry
+  exit : Exit
+  group : String
+  rule : String
+  domain : String
+  domain_source : DomainSource
+  first : Int64
+  last : Int64
+  up : Int64
+  down : Int64
+  inconsistent : Bool
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Header {
+  version : Int32
+  t0 : Int64
+  note : String
+  devices : DeviceMap
+  cores : Array[CoreProc]
+  tun : Array[TunInfo]
+  listeners : Array[Listener]
+}
+pub fn Header::to_line(Self) -> String
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Listener {
+  addr : @netaddr.IpAddr
+  port : Int32
+  pid : Int32
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct NetEvent {
+  t : Int64
+  pid : Int32
+  proto : Proto
+  kind : NetKind
+  sock : Endpoint
+  peer : Endpoint
+  size : Int32
+}
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) enum NetKind {
+  Send
+  Recv
+  Connect
+  Accept
+  Disconnect
+  Retransmit
+  Reconnect
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct ProcStart {
+  t : Int64
+  pid : Int32
+  ppid : Int32
+  create_time : Int64
+  image : String
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct ProcStop {
+  t : Int64
+  pid : Int32
+  create_time : Int64
+  exit_code : Int32
+}
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) enum Proto {
+  Tcp
+  Udp
+}
+pub impl Show for Proto
+
+#derive(Eq, @debug.Debug)
+pub(all) struct RawDns {
+  t : Int64
+  id : Int32
+  header_pid : Int32
+  client_pid : Int32?
+  name : String
+  status : Int32
+  results : String
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct RawNet {
+  t : Int64
+  id : Int32
+  pid : Int32
+  size : Int32
+  saddr : String
+  sport : Int32
+  daddr : String
+  dport : Int32
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct RawProcStart {
+  t : Int64
+  pid : Int32
+  ppid : Int32
+  create_time : Int64
+  image : String
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Record {
+  Net(RawNet)
+  Dns(RawDns)
+  ProcStart(RawProcStart)
+  ProcStop(ProcStop)
+  MihomoSnapshot(Int64, @json.Json)
+  MihomoLog(Int64, String)
+  Route(RouteFact)
+  Listeners(Int64, Array[Listener])
+}
+pub fn Record::to_line(Self, Int64) -> String
+
+#derive(@debug.Debug)
+pub(all) struct Recording {
+  header : Header
+  records : Array[Record]
+}
+pub fn Recording::to_text(Self) -> String
+
+#derive(Eq, @debug.Debug)
+pub(all) struct ReplayStats {
+  net_ignored : Int32
+  dns_ignored : Int32
+  core_frames_bad : Int32
+  core_log_other : Int32
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct RouteFact {
+  t : Int64
+  dst : @netaddr.IpAddr
+  if_index : Int32
+  if_name : String
+  via_tun : Bool
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Totals {
+  by_entry : Map[Entry, (Int64, Int64)]
+  unknown_exit : Int64
+  core_outbound_up : Int64
+  core_outbound_down : Int64
+  dropped_mirror : Int64
+  dropped_loopback : Int64
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct TunInfo {
+  if_index : Int32
+  if_name : String
+  prefixes : Array[@netaddr.Cidr]
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct UsageRow {
+  minute : Int64
+  app : String
+  process : String
+  domain : String
+  entry : Entry
+  exit : Exit
+  rule : String
+  up : Int64
+  down : Int64
+}
+
+// Type aliases
+pub type Ticks = Int64
+
+// Traits

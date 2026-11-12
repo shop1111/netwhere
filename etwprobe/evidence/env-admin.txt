@@ -1,0 +1,6 @@
+[env] token elevated: 1 (1 = yes, 0 = no)
+[env] Kernel-Network  OK      0 events in 1.5 s, stop -> 0
+[env] DNS-Client      OK      223 events in 1.5 s, stop -> 0
+[env] Kernel-Process  OK      2 events in 1.5 s, stop -> 0
+[env] all three       OK      0 events in 1.5 s, stop -> 0
+[env] session MoonEtwProbe exists after stop: 0

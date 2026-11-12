@@ -1,0 +1,7 @@
+_build/
+.mooncakes/
+*.obj
+*.pdb
+# Raw (unsanitized) recordings and probe output never leave the machine.
+**/evidence/raw/
+**/raw/

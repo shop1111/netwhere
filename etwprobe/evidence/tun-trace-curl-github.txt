@@ -1,0 +1,17 @@
+
+==== trace: curl.exe -s -o NUL --noproxy * https://www.github.com
+root pid 22520, exit code 0, ran 0.72 s
+process tree (1):
+  pid 22520  parent 17548  curl.exe
+DNS answers seen for the tree (2):
+  www.github.com -> 198.18.0.11;
+  www.github.com -> type: 5 github.com;
+flows of the tree:
+  tcp 198.18.0.11:443                TUN-fake-ip send 649 B      recv 3447 B     conns 1 sport 50202 www.github.com
+totals by route:
+  TUN-fake-ip send 649 B recv 3447 B
+---- consumer statistics
+events: 362 (net 334, dns 24, process 4, other 0) over 4 s = 97/s
+dropped records: 0; TDH decode failures: 0; max queue: 23.6 KB; queued total: 0.03 MB
+callback cost: 22319 ns/event (TDH generic decoding, includes queue append)
+probe process: cpu 0 ms, private 34.25 MB, working set 8.72 MB, peak WS 14.81 MB

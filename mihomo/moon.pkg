@@ -1,0 +1,10 @@
+import {
+  "shop1111/netwhere/netaddr",
+  "moonbitlang/core/json",
+}
+
+import {
+  "moonbitlang/core/json",
+} for "test"
+
+warnings = "-79"
