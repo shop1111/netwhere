@@ -1,0 +1,56 @@
+# v2fly/domain-list-community lists that become built-in apps.
+# One "list<TAB or spaces>App name" per line. Only lists that describe one
+# service belong here; meta-categories (category-*, geolocation-*, cn, ...)
+# are deliberately left out. Edit, then re-run cmd/rules-import.
+adobe            Adobe
+alibaba          Alibaba
+amazon           Amazon
+anthropic        Anthropic
+apple            Apple
+atlassian        Atlassian
+baidu            Baidu
+bilibili         Bilibili
+bytedance        ByteDance
+cloudflare       Cloudflare
+discord          Discord
+docker           Docker
+dropbox          Dropbox
+epicgames        Epic Games
+facebook         Facebook
+figma            Figma
+github           GitHub
+gitlab           GitLab
+google           Google
+huawei           Huawei
+instagram        Instagram
+jetbrains        JetBrains
+jd               JD
+linkedin         LinkedIn
+microsoft        Microsoft
+mozilla          Mozilla
+netease          NetEase
+netflix          Netflix
+notion           Notion
+nvidia           NVIDIA
+openai           OpenAI
+oracle           Oracle
+paypal           PayPal
+pinterest        Pinterest
+reddit           Reddit
+sina             Sina Weibo
+slack            Slack
+spotify          Spotify
+steam            Steam
+telegram         Telegram
+tencent          Tencent
+tiktok           TikTok
+twitch           Twitch
+twitter          X (Twitter)
+ubuntu           Ubuntu
+whatsapp         WhatsApp
+wikimedia        Wikipedia
+xiaomi           Xiaomi
+yahoo            Yahoo
+youtube          YouTube
+zhihu            Zhihu
+zoom             Zoom

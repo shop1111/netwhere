@@ -1,0 +1,14 @@
+import {
+  "shop1111/netwhere/internal/cli",
+  "shop1111/netwhere/rules",
+  "shop1111/netwhere/sys",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/env",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
+
+warnings = "-79"
