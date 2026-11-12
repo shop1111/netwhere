@@ -153,6 +153,16 @@ netwhere export --csv
 | 1.6 | 规则数据集导入、降级模式 | 降级时输出带有明确标注；导入脚本可以重复运行，结果一致 |
 | 1.7 | 开销测量、README、发布 Mooncakes | 用独立的消费工程从 Mooncakes 安装库包并调用通过 |
 
+**进度（2026-11-13）**：
+
+- **代码已写完，并且不需要提权的部分都已测试**：1.0–1.6 的全部代码，以及 README。
+- **还需要提权和实机操作**：
+  - 1.0：用 `scripts/record-scenarios.ps1` 录两组场景，脱敏后放进 `testdata/scenarios/`。
+  - 1.1：在 shadow 模式下对照，`shadow_mismatch=0` 之后，采集进程的默认解码方式改为 fast。
+  - 1.4：`netwhere install` 和 24 小时运行。
+  - 1.6：下载 v2fly 数据集，生成 `rules/builtin.txt`。
+  - 1.7：开销测量、发布 Mooncakes。
+
 ## 8. 第二步：托盘与图形界面
 
 | # | 内容 | 完成标准 |
