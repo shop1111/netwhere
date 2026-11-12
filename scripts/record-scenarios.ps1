@@ -119,13 +119,16 @@ Invoke-Scenario "curl-env-proxy" $curl "-4 -s -o NUL `"$url`"" @(
 Invoke-Scenario "curl-noproxy-v6" $curl "-6 -s -o NUL --noproxy * `"$url`"" @(
   [ordered]@{ process = "curl.exe"; entry = "route"; exit = "any"; down_min = $Bytes; only = $true }
 )
-$gitEntry = if ($envProxy -or $gitProxy) { "proxy-port" } else { $v4Direct }
-$gitExit = if ($envProxy -or $gitProxy) { "core" } else { $v4DirectExit }
+# Without a proxy setting the address family is the client's choice (IPv6
+# bypasses TUN on some machines), so only "not through the proxy port" is
+# asserted and the recorded route facts decide the rest.
+$gitEntry = if ($envProxy -or $gitProxy) { "proxy-port" } else { "route" }
+$gitExit = if ($envProxy -or $gitProxy) { "core" } else { "any" }
 Invoke-Scenario "git-ls-remote" "git" "ls-remote https://github.com/git/git HEAD" @(
   [ordered]@{ process = "git-remote-https.exe"; entry = $gitEntry; exit = $gitExit; down_min = 1000; only = $false }
 )
-$iwrEntry = if ($systemProxy) { "proxy-port" } else { $v4Direct }
-$iwrExit = if ($systemProxy) { "core" } else { $v4DirectExit }
+$iwrEntry = if ($systemProxy) { "proxy-port" } else { "route" }
+$iwrExit = if ($systemProxy) { "core" } else { "any" }
 Invoke-Scenario "powershell-iwr" "powershell" "-NoProfile -Command `"Invoke-WebRequest -UseBasicParsing '$small' | Out-Null`"" @(
   [ordered]@{ process = "powershell.exe"; entry = $iwrEntry; exit = $iwrExit; down_min = 200000; only = $false }
 )
