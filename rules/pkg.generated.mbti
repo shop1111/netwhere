@@ -6,6 +6,8 @@ import {
 }
 
 // Values
+pub fn assign_unique(Array[(String, Array[DomainPattern])]) -> Array[(String, Array[DomainPattern])]
+
 pub let builtin_header : String
 
 pub fn load_builtin(RuleSet, StringView) -> Int32 raise V2flyError

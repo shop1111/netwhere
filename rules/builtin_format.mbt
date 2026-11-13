@@ -96,3 +96,29 @@ pub fn load_builtin(set : RuleSet, text : StringView) -> Int32 raise V2flyError 
   }
   count
 }
+
+///|
+/// Gives every pattern to exactly one app: lists include each other
+/// (google includes youtube, microsoft includes github), and the more
+/// specific list, the one with fewer patterns, is the better name. Ties go
+/// to the alphabetically first app, so the result is deterministic.
+pub fn assign_unique(
+  sections : Array[(String, Array[DomainPattern])],
+) -> Array[(String, Array[DomainPattern])] {
+  let owner : Map[DomainPattern, (Int32, String)] = Map([])
+  for s in sections {
+    let (app, patterns) = s
+    let size = patterns.length()
+    for p in patterns {
+      match owner.get(p) {
+        Some((n, a)) if n < size || (n == size && lex_compare(a, app) <= 0) =>
+          ()
+        _ => owner[p] = (size, app)
+      }
+    }
+  }
+  sections.map(s => {
+    let (app, patterns) = s
+    (app, patterns.filter(p => owner.get(p) is Some((_, a)) && a == app))
+  })
+}

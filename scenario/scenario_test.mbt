@@ -60,3 +60,51 @@ async test "recorded scenarios replay to their known outcomes" {
     }
   }
 }
+
+///|
+async test "built-in rules classify well-known domains" {
+  let path = for
+    p in [
+      "rules/builtin.txt", "../rules/builtin.txt", "../../rules/builtin.txt",
+    ] {
+    if @fs.exists(p) {
+      break Some(p)
+    }
+  } nobreak {
+    None
+  }
+  guard path is Some(path) else { return }
+  let set = @rules.RuleSet::new()
+  let n = @rules.load_builtin(set, @fs.read_file(path).text())
+  assert_true(n > 5000, msg="only \{n} patterns")
+  let app = fn(d : String) {
+    match set.classify("x.exe", Some(d)) {
+      Some(c) => c.app
+      None => "Unknown"
+    }
+  }
+  inspect(
+    [
+      "www.youtube.com", "i.ytimg.com", "www.google.com", "api.github.com", "github.githubassets.com",
+      "login.microsoftonline.com", "www.bilibili.com", "chatgpt.com", "api.anthropic.com",
+      "www.tiktok.com", "www.douyin.com", "speed.cloudflare.com", "example.org",
+    ]
+    .map(d => d + "=" + app(d))
+    .join("\n"),
+    content=(
+      #|www.youtube.com=YouTube
+      #|i.ytimg.com=YouTube
+      #|www.google.com=Google
+      #|api.github.com=GitHub
+      #|github.githubassets.com=GitHub
+      #|login.microsoftonline.com=Microsoft
+      #|www.bilibili.com=Bilibili
+      #|chatgpt.com=OpenAI
+      #|api.anthropic.com=Anthropic
+      #|www.tiktok.com=TikTok
+      #|www.douyin.com=ByteDance
+      #|speed.cloudflare.com=Cloudflare
+      #|example.org=Unknown
+    ),
+  )
+}

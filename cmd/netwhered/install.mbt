@@ -55,7 +55,7 @@ async fn copy_file(from : String, to : String) -> Unit {
 async fn cmd_install(args : ArrayView[String]) -> Int32 {
   let a = @cli.parse(
     args,
-    with_value=["--owner-sid", "--data-dir", "--source"],
+    with_value=["--owner-sid", "--data-dir", "--source", "--rules"],
     switches=[],
   ) catch {
     e => {
@@ -114,10 +114,10 @@ async fn cmd_install(args : ArrayView[String]) -> Int32 {
       }
     }
     out.say("  collector: \{exe}")
-    let rules = source + "\\builtin-rules.txt"
+    let rules = a.get("--rules", source + "\\builtin-rules.txt")
     if @fs.exists(rules) {
       copy_file(rules, dir + "\\builtin-rules.txt")
-      out.say("  built-in rules: copied")
+      out.say("  built-in rules: copied from \{rules}")
     } else {
       out.say("  built-in rules: none found next to netwhered.exe")
     }

@@ -6,6 +6,7 @@ import {
 
 import {
   "shop1111/netwhere/ledger",
+  "shop1111/netwhere/rules",
   "moonbitlang/async",
   "moonbitlang/async/fs",
 } for "test"

@@ -103,7 +103,7 @@ python -I scripts\sanitize_recording.py testdata\raw\tun.manifest.json testdata\
 
 `testdata\raw\` 已加入 git 忽略。`testdata\scenarios\` 里是脱敏后的录制，`moon test` 会逐个回放并核对。
 
-**内置规则：**
+**内置规则：** 仓库里的 `rules/builtin.txt` 是用 v2fly/domain-list-community@777d056（2026-11-13）生成的，包含 52 个应用、8,967 条域名规则。[rules/apps.txt](rules/apps.txt) 决定哪些列表算作应用，以及应用的显示名。各列表之间会相互包含（例如 google 包含 youtube），同一条规则重复出现时，归给条目更少、也就更具体的那个应用。`netwhere install` 会把这份规则一起装进去。更新规则：
 
 ```powershell
 git clone --depth 1 https://github.com/v2fly/domain-list-community $env:TEMP\dlc
@@ -116,7 +116,7 @@ moon run cmd/rules-import -- $env:TEMP\dlc\data --apps rules\apps.txt --out rule
 
 - 地址规范化、事件规范化、录制格式、记账引擎（合成场景覆盖系统代理、TUN、IPv6 绕过、短连接日志兜底、端口复用、不一致标记）、增量写库。
 - Mihomo 的快照、日志和配置解码；WebSocket 订阅。
-- 规则匹配、v2fly 格式解析、规则导入（使用测试数据集）。
+- 规则匹配、v2fly 格式解析、规则导入；内置规则来自真实的 v2fly 数据集，有测试检查常见域名的分类结果。
 - SQLite 账本：含保活连接；"采集进程停止后只读用户仍能读取"已实测。
 - 信箱协议（完整状态机），以及普通权限下的端到端流程。
 - 所有命令行命令、降级 trace、路由与监听表查询。
@@ -127,10 +127,9 @@ moon run cmd/rules-import -- $env:TEMP\dlc\data --apps rules\apps.txt --out rule
 - 系统代理模式和 TUN（fake-ip）模式各 6 个场景，全部符合预期，包括"IPv6 绕过 TUN"。录制已脱敏，放在 `testdata/scenarios/`，由 `moon test` 回放。
 - 定长解码和 TDH 逐字段对照：103,671 个字段，没有任何差异。没有丢失事件，现在默认使用定长解码。
 
-**已完成，等待实机验证：**
+- `install`：计划任务、目录权限和隐藏控制台窗口都已核实；在已安装的采集进程上实际跑了 `trace`。
 
-- `install` 和 `uninstall`。
-- 采集进程连续运行 24 小时；开销测量。
+**进行中：** 已安装的采集进程正在做 2 小时的开销采样（`scripts/sample_overhead.py`）。`uninstall` 还没有在实机上运行过。
 
 **计划中：** 托盘和图形界面（PLAN.md 第 8 节）。
 

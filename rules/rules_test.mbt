@@ -236,3 +236,20 @@ test "builtin file round trip is deterministic" {
   )
   assert_eq(set.domain_count(Builtin), 8)
 }
+
+///|
+test "shared patterns go to the most specific app" {
+  let out = @rules.assign_unique([
+    (
+      "Google",
+      [Suffix("google.com"), Suffix("youtube.com"), Suffix("ytimg.com")],
+    ),
+    ("YouTube", [Suffix("youtube.com"), Suffix("ytimg.com")]),
+    ("A", [Suffix("same.test")]),
+    ("B", [Suffix("same.test")]),
+  ])
+  inspect(
+    out.map(s => s.0 + ":" + s.1.map(p => p.to_string()).join(",")).join(" "),
+    content="Google:domain:google.com YouTube:domain:youtube.com,domain:ytimg.com A:domain:same.test B:",
+  )
+}

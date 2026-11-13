@@ -436,7 +436,7 @@ fn session_name(dir : String) -> String {
     return "netwhere"
   }
   // FNV-1a over the lower-cased path.
-  let mut h : UInt = 2166136261
+  let mut h : UInt32 = 2166136261
   for c in dir.to_lower() {
     h = (h ^ c.to_int().reinterpret_as_uint()) * 16777619
   }

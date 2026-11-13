@@ -97,7 +97,7 @@ async fn main {
       skipped_regexp += l.regexp_skipped
     }
     let text = @rules.write_builtin(
-      sections,
+      @rules.assign_unique(sections),
       a.get("--source", "v2fly/domain-list-community"),
     )
     let out = a.get("--out", "rules/builtin.txt")

@@ -11,6 +11,28 @@ fn own_dir() -> String {
 }
 
 ///|
+/// Built-in rules: builtin-rules.txt next to this program (release
+/// package), else rules\builtin.txt in an enclosing source tree.
+async fn find_rules() -> String? {
+  let next = own_dir() + "\\builtin-rules.txt"
+  if @fs.exists(next) {
+    return Some(next)
+  }
+  let mut dir = own_dir()
+  for _ in 0..<8 {
+    let candidate = dir + "\\rules\\builtin.txt"
+    if @fs.exists(candidate) {
+      return Some(@fs.realpath(candidate))
+    }
+    match dir.rev_find("\\") {
+      Some(i) => dir = dir[:i].to_owned()
+      None => break
+    }
+  }
+  None
+}
+
+///|
 async fn elevate(dir : String, verb : String, extra : Array[String]) -> Int32 {
   // Release packages ship both programs side by side; in a moon build tree
   // each executable has its own directory.
@@ -25,7 +47,9 @@ async fn elevate(dir : String, verb : String, extra : Array[String]) -> Int32 {
     }
   }
   if found == "" {
-    println("\{verb}: netwhered.exe not found next to netwhere.exe (\{candidates[0]})")
+    println(
+      "\{verb}: netwhered.exe not found next to netwhere.exe (\{candidates[0]})",
+    )
     return 2
   }
   let exe = @fs.realpath(found)
@@ -60,7 +84,15 @@ async fn cmd_install(args : ArrayView[String]) -> Int32 {
     }
   }
   let dir = data_dir_of(a)
-  let code = elevate(dir, "install", ["--owner-sid", @sys.current_user_sid()])
+  let extra = ["--owner-sid", @sys.current_user_sid()]
+  match find_rules() {
+    Some(r) => {
+      extra.push("--rules")
+      extra.push(r)
+    }
+    None => ()
+  }
+  let code = elevate(dir, "install", extra)
   if code == 0 {
     // Give the task a moment to start, then show what it reports.
     @async.sleep(4000)
