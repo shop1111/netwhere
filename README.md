@@ -136,8 +136,6 @@ moon run cmd/rules-import -- $env:TEMP\dlc\data --apps rules\apps.txt --out rule
   - ETW 回调平均每个事件约 850 ns；
   - 共 31 万个事件，丢事件和队列丢弃都是 0。
 
-  作为对比，原 Go 版 MihomoTracker 即使不打开窗口，私有内存也约 237 MB。
-
 - 发布：`shop1111/netwhere@0.1.0` 已发布到 [Mooncakes](https://mooncakes.io/docs/shop1111/netwhere)，全新消费工程 `moon add` 后调用 `netaddr`、`rules` 通过（2026-11-13）。
 
 **还没做：** 24 小时连续运行。

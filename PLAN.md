@@ -113,7 +113,7 @@ netwhere export --csv
    - 匹配不上的标为"未知"，并统计这类流量的占比。
    - 路由表判定为"经 TUN"、但持续较久的连接在 Mihomo 中始终找不到时，标为不一致，不要默默按任何一方计算。
 6. **域名来源的优先级**：Mihomo 的 host（含嗅探结果）> 本进程的 DNS 应答（IP → 域名，含 fake-ip）> 全机的 DNS 应答 > 只显示 IP。
-7. **分类**：沿用原版的优先级，"进程 + 域名" > 只看进程 > 只看域名 > Unknown。内置规则导入自 v2fly/domain-list-community（MIT），用户规则优先于内置规则。规则只影响之后的统计。
+7. **分类**：优先级为"进程 + 域名" > 只看进程 > 只看域名 > Unknown。内置规则导入自 v2fly/domain-list-community（MIT），用户规则优先于内置规则。规则只影响之后的统计。
 8. **倍率**：只对"出口为代理节点"的流量估算套餐消耗。倍率可以手工设置，或从节点名里的 `2x` 之类标记识别，否则按 1 倍计算。
 
 ## 5. 模块划分（模块名 `shop1111/netwhere`）
@@ -138,7 +138,7 @@ netwhere export --csv
   - 每个场景附一份手写的 `expected.json`，脱敏后放进 `testdata/`。
 - **CI**：在 Windows 上跑 check、build、test（回放测试不需要管理员权限，也不需要代理软件）。信箱协议的状态流转和校验规则也写成测试：用临时目录和临时数据库，分别模拟客户端和采集进程两侧，包括格式错误、超大、冒用 pid 的请求。
 - **实机对照**（手动进行，结果写入文档）：用结果已知的实验验证，比如 `curl -x`、`--noproxy`、TUN、IPv6、git。每种代理配置组合都要有对应的录制文件。
-- **开销测量**：测解码每个事件的耗时（基准测试），以及采集进程常驻时的工作集和 CPU 占用（30 分钟采样）。对比对象是作者原来的 Go 版 MihomoTracker（常驻私有内存约 237 MB）。
+- **开销测量**：测解码每个事件的耗时（基准测试），以及采集进程常驻时的工作集和 CPU 占用（30 分钟采样）。
 
 ## 7. 第一步：采集进程与命令行
 
@@ -185,13 +185,11 @@ netwhere export --csv
 
 - 赛事截止日期。两步都承诺交付，排期取决于它。
 - 界面技术，等 2.1 的探针结果。2.1 和主线没有依赖关系，在做 1.2 的同时就开始。
-- 原 Go 版 MihomoTracker 仓库目前是私有的，以后引用时是否公开。
 - 以后是否从计划任务改成 Windows 服务。
 - TUN 的其他变体（纯 gVisor 协议栈、real-ip 模式）、sing-box、浏览器 DoH，放进 1.2 和 1.3 的回归测试中补齐。
 
-## 附：调研与基线（2026-11-12）
+## 附：调研（2026-11-12）
 
 - **同类项目**（其他语言）：zhf883680/clash-traffic-monitor（Go，★125）、cheesenyan/mihomo-traffic-ledger（Go）、windyy0/clash-mihomo-traffic（Rust）、Weicoz/clash-traffic（Rust）等，都只统计经过代理内核的流量。商业软件中，Proxifier、GlassWire、NetLimiter 可以作为功能形态的参照。
 - **MoonBit 生态**：在 Mooncakes 全量索引（3739 个模块）和 GitHub 上的 MoonBit 仓库中，没有发现 Mihomo/Clash 流量统计或 ETW 相关的项目。
 - **可用的依赖**：`moonbitlang/async`（WebSocket，支持 Windows）、`moonbit-community/sqlite3`（自带 SQLite 源码）、`justjavac/tray`，以及几个 WebView2 绑定（见 2.1）。
-- **基线**：Go 版 MihomoTracker 即使不打开窗口，整组进程也有工作集 385 MB、私有内存 237 MB，其中约 85% 来自预先创建的隐藏 WebView2；exe 体积 21 MB。
