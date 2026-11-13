@@ -428,6 +428,22 @@ async fn Live::refresh_core(self : Live, ctl : @client.Controller) -> Unit {
 }
 
 ///|
+/// ETW session name: "netwhere" for the installed data directory; any
+/// other directory (tests, a second instance) gets its own name, because
+/// starting a session stops a running one of the same name.
+fn session_name(dir : String) -> String {
+  if dir.to_lower() == default_data_dir().to_lower() {
+    return "netwhere"
+  }
+  // FNV-1a over the lower-cased path.
+  let mut h : UInt = 2166136261
+  for c in dir.to_lower() {
+    h = (h ^ c.to_int().reinterpret_as_uint()) * 16777619
+  }
+  "netwhere-" + h.to_string(radix=16)
+}
+
+///|
 async fn run_collector(opts : RunOptions) -> Int32 {
   let dir = opts.data_dir
   @fs.mkdir(dir + "\\requests", recursive=true, allow_exist=true) catch {
@@ -524,7 +540,7 @@ async fn run_collector(opts : RunOptions) -> Int32 {
   }
   live.check_config()
   let devices = @ledger.DeviceMap::new(@route.dos_devices() catch { _ => [] })
-  @etw.start("netwhere", providers~, decoder=opts.decoder) catch {
+  @etw.start(session_name(dir), providers~, decoder=opts.decoder) catch {
     e => {
       live.note("etw: \{e}")
       live.last_error = e.to_string()
