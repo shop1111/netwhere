@@ -1,0 +1,107 @@
+{
+  "mode": "tun",
+  "recording": "tun.ndjson",
+  "controller": "127.0.0.1:9090",
+  "proxy_port": 7890,
+  "env_proxy": false,
+  "git_proxy": false,
+  "system_proxy": false,
+  "scenarios": [
+    {
+      "name": "curl-proxy-port",
+      "command": "C:\\WINDOWS\\System32\\curl.exe -s -o NUL -x http://127.0.0.1:7890 \"https://speed.cloudflare.com/__down?bytes=5000000\"",
+      "pid": 20056,
+      "exit_code": 0,
+      "started": "2026-11-13T06:28:13.0009766Z",
+      "expect": [
+        {
+          "process": "curl.exe",
+          "entry": "proxy-port",
+          "exit": "core",
+          "down_min": 5000000,
+          "only": true
+        }
+      ]
+    },
+    {
+      "name": "curl-noproxy-v4",
+      "command": "C:\\WINDOWS\\System32\\curl.exe -4 -s -o NUL --noproxy * \"https://speed.cloudflare.com/__down?bytes=5000000\"",
+      "pid": 19676,
+      "exit_code": 0,
+      "started": "2026-11-13T06:28:17.0646716Z",
+      "expect": [
+        {
+          "process": "curl.exe",
+          "entry": "tun",
+          "exit": "core",
+          "down_min": 5000000,
+          "only": true
+        }
+      ]
+    },
+    {
+      "name": "curl-env-proxy",
+      "command": "C:\\WINDOWS\\System32\\curl.exe -4 -s -o NUL \"https://speed.cloudflare.com/__down?bytes=5000000\"",
+      "pid": 10148,
+      "exit_code": 0,
+      "started": "2026-11-13T06:28:21.1342820Z",
+      "expect": [
+        {
+          "process": "curl.exe",
+          "entry": "proxy-port",
+          "exit": "core",
+          "down_min": 5000000,
+          "only": true
+        }
+      ]
+    },
+    {
+      "name": "curl-noproxy-v6",
+      "command": "C:\\WINDOWS\\System32\\curl.exe -6 -s -o NUL --noproxy * \"https://speed.cloudflare.com/__down?bytes=5000000\"",
+      "pid": 19844,
+      "exit_code": 0,
+      "started": "2026-11-13T06:28:25.1957077Z",
+      "expect": [
+        {
+          "process": "curl.exe",
+          "entry": "route",
+          "exit": "any",
+          "down_min": 5000000,
+          "only": true
+        }
+      ]
+    },
+    {
+      "name": "git-ls-remote",
+      "command": "git ls-remote https://github.com/git/git HEAD",
+      "pid": 2556,
+      "exit_code": 0,
+      "started": "2026-11-13T06:28:38.3213485Z",
+      "expect": [
+        {
+          "process": "git-remote-https.exe",
+          "entry": "route",
+          "exit": "any",
+          "down_min": 1000,
+          "only": false
+        }
+      ]
+    },
+    {
+      "name": "powershell-iwr",
+      "command": "powershell -NoProfile -Command \"Invoke-WebRequest -UseBasicParsing 'https://speed.cloudflare.com/__down?bytes=200000' | Out-Null\"",
+      "pid": 11284,
+      "exit_code": 0,
+      "started": "2026-11-13T06:28:42.3675838Z",
+      "expect": [
+        {
+          "process": "powershell.exe",
+          "entry": "route",
+          "exit": "any",
+          "down_min": 200000,
+          "only": false
+        }
+      ]
+    }
+  ]
+}

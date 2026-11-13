@@ -156,9 +156,10 @@ netwhere export --csv
 **进度（2026-11-13）**：
 
 - **代码已写完，并且不需要提权的部分都已测试**：1.0–1.6 的全部代码，以及 README。
+- **已在实机上完成**：
+  - 1.0：系统代理和 TUN 两组场景都已录制，共 12 个场景全部符合预期。脱敏后的录制放在 `testdata/scenarios/`，由 `moon test` 回放校验。
+  - 1.1：shadow 模式在两次录制中共对照 103,671 个字段，没有任何差异；丢事件为 0。采集进程的默认解码方式已改为 fast。
 - **还需要提权和实机操作**：
-  - 1.0：用 `scripts/record-scenarios.ps1` 录两组场景，脱敏后放进 `testdata/scenarios/`。
-  - 1.1：在 shadow 模式下对照，`shadow_mismatch=0` 之后，采集进程的默认解码方式改为 fast。
   - 1.4：`netwhere install` 和 24 小时运行。
   - 1.6：下载 v2fly 数据集，生成 `rules/builtin.txt`。
   - 1.7：开销测量、发布 Mooncakes。

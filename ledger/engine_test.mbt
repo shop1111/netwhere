@@ -418,3 +418,21 @@ test "a connection opened before observation joins its snapshot" {
     content="curl.exe tcp 127.0.0.1:7890 entry=proxy-port exit=node:HK 01 domain=api.example.com up=0 down=500",
   )
 }
+
+///|
+test "dns hijacked by tun is not flagged inconsistent" {
+  let e = run(header(tun=true), [
+    Route({
+      t: t0,
+      dst: ipa("198.18.0.2"),
+      if_index: 42,
+      if_name: "FlClash",
+      via_tun: true,
+    }),
+    net(0L, 42, 2504, "198.18.0.1", 50000, "198.18.0.2", 53, 40),
+    net(5L * sec, 43, 2504, "198.18.0.2", 53, "198.18.0.1", 50000, 120),
+  ])
+  let f = e.flows()[0]
+  assert_eq(f.entry, Tun)
+  assert_false(f.inconsistent)
+}

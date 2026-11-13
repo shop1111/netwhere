@@ -588,6 +588,9 @@ fn Engine::summarize(self : Engine, f : Flow) -> FlowSummary {
     down: f.down,
     inconsistent: f.entry == Tun &&
     core is None &&
+    // DNS hijacked by TUN is answered inside the core without a
+    // connection record, so it is not an inconsistency.
+    f.key.peer.port != 53 &&
     f.last - f.first > inconsistent_after,
   }
 }

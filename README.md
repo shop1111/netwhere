@@ -122,9 +122,13 @@ moon run cmd/rules-import -- $env:TEMP\dlc\data --apps rules\apps.txt --out rule
 - 所有命令行命令、降级 trace、路由与监听表查询。
 - 普通权限下的录制：DNS-Client 和 Mihomo。
 
-**已完成，等待提权实机验证：**
+**已在提权实机上验证**（2026-11-13，FlClash / Mihomo）：
 
-- Kernel-Network 和 Kernel-Process 采集，以及定长解码与 TDH 的逐字段对照（录制默认使用 `shadow` 模式；对照没问题之前，采集进程默认使用 TDH 解码）。
+- 系统代理模式和 TUN（fake-ip）模式各 6 个场景，全部符合预期，包括"IPv6 绕过 TUN"。录制已脱敏，放在 `testdata/scenarios/`，由 `moon test` 回放。
+- 定长解码和 TDH 逐字段对照：103,671 个字段，没有任何差异。没有丢失事件，现在默认使用定长解码。
+
+**已完成，等待实机验证：**
+
 - `install` 和 `uninstall`。
 - 采集进程连续运行 24 小时；开销测量。
 
