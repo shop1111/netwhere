@@ -127,7 +127,8 @@ moon run cmd/rules-import -- $env:TEMP\dlc\data --apps rules\apps.txt --out rule
 - 系统代理模式和 TUN（fake-ip）模式各 6 个场景，全部符合预期，包括"IPv6 绕过 TUN"。录制已脱敏，放在 `testdata/scenarios/`，由 `moon test` 回放。
 - 定长解码和 TDH 逐字段对照：103,671 个字段，没有任何差异。没有丢失事件，现在默认使用定长解码。
 
-- `install`：计划任务、目录权限和隐藏控制台窗口都已核实；在已安装的采集进程上实际跑了 `trace`。
+- `install`：计划任务、目录权限和隐藏控制台窗口都已核实；在已安装的采集进程上实际跑了 `trace`。覆盖安装正在运行的采集进程也没问题。
+- `uninstall`：计划任务、采集进程和 ETW 会话都会清掉，数据保留。
 
 - 常驻开销（已安装的采集进程，2 小时，每分钟采样一次，`scripts/sample_overhead.py`）：
   - 私有内存 6.6–8.6 MB，工作集 7–16 MB；
@@ -137,7 +138,7 @@ moon run cmd/rules-import -- $env:TEMP\dlc\data --apps rules\apps.txt --out rule
 
   作为对比，原 Go 版 MihomoTracker 即使不打开窗口，私有内存也约 237 MB。
 
-**还没做：** `uninstall` 还没有在实机上运行过；24 小时连续运行。
+**还没做：** 24 小时连续运行。
 
 **计划中：** 托盘和图形界面（PLAN.md 第 8 节）。
 

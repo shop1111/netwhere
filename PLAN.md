@@ -163,7 +163,7 @@ netwhere export --csv
   - 1.6：`rules/builtin.txt` 已从 v2fly@777d056 生成（52 个应用，8,967 条规则）。
   - 1.7：2 小时开销采样已完成，结果见 DECISIONS.md "常驻开销实测"。
 - **还剩**：
-  - 1.4：24 小时运行；`uninstall` 实机验证。
+  - 1.4：24 小时运行（`uninstall` 已在实机上验证）。
   - 1.7：发布 Mooncakes，并用消费工程验证。
 
 ## 8. 第二步：托盘与图形界面
