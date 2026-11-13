@@ -161,10 +161,9 @@ netwhere export --csv
   - 1.1：shadow 模式在两次录制中共对照 103,671 个字段，没有任何差异；丢事件为 0。采集进程的默认解码方式已改为 fast。
   - 1.4：`netwhere install` 已完成，已安装的采集进程连续运行 2 小时，没有丢事件。
   - 1.6：`rules/builtin.txt` 已从 v2fly@777d056 生成（52 个应用，8,967 条规则）。
-  - 1.7：2 小时开销采样已完成，结果见 DECISIONS.md "常驻开销实测"。
+  - 1.7：2 小时开销采样已完成，结果见 DECISIONS.md "常驻开销实测"。0.1.0 已发布到 Mooncakes，全新消费工程 `moon add` 后调用 `netaddr`、`rules` 通过。
 - **还剩**：
   - 1.4：24 小时运行（`uninstall` 已在实机上验证）。
-  - 1.7：发布 Mooncakes，并用消费工程验证。
 
 ## 8. 第二步：托盘与图形界面
 
