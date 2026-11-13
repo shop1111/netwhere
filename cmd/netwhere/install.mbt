@@ -12,11 +12,23 @@ fn own_dir() -> String {
 
 ///|
 async fn elevate(dir : String, verb : String, extra : Array[String]) -> Int32 {
-  let exe = own_dir() + "\\netwhered.exe"
-  if !@fs.exists(exe) {
-    println("\{verb}: netwhered.exe not found next to netwhere.exe (\{exe})")
+  // Release packages ship both programs side by side; in a moon build tree
+  // each executable has its own directory.
+  let candidates = [
+    own_dir() + "\\netwhered.exe",
+    own_dir() + "\\..\\netwhered\\netwhered.exe",
+  ]
+  let mut found = ""
+  for c in candidates {
+    if found == "" && @fs.exists(c) {
+      found = c
+    }
+  }
+  if found == "" {
+    println("\{verb}: netwhered.exe not found next to netwhere.exe (\{candidates[0]})")
     return 2
   }
+  let exe = @fs.realpath(found)
   let params = @sys.join_command_line([verb, "--data-dir", dir, ..extra][:])
   println("\{verb}: approve the UAC prompt to continue")
   let code = match @sys.run_elevated(exe, params) {
