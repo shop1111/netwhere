@@ -171,8 +171,9 @@ async fn cmd_uninstall(args : ArrayView[String]) -> Int32 {
     ignore(out.run(c))
   }
   // A collector killed by /End leaves its ETW session behind.
-  if @etw.session_exists("netwhere") {
-    ignore(@etw.stop_session("netwhere"))
+  let session = session_name(dir)
+  if @etw.session_exists(session) {
+    ignore(@etw.stop_session(session))
     out.say("stopped the ETW session")
   }
   if a.has("--purge") {
