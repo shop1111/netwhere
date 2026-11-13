@@ -65,6 +65,9 @@ pub(all) struct Heartbeat {
   dropped : Int64
   flows : Int32
   private_bytes : Int64
+  callback_ns : Int64
+  events_lost : Int64
+  cpu_ms : Int64
 }
 
 #derive(Eq, @debug.Debug)

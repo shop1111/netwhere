@@ -72,6 +72,9 @@ async test "heartbeat round trip" {
     dropped: 0L,
     flows: 7,
     private_bytes: 9_000_000L,
+    callback_ns: 1000L,
+    events_lost: 0L,
+    cpu_ms: 5L,
   }
   w.write_heartbeat(h)
   w.write_heartbeat({ ..h, updated: 3L, state: "paused", })

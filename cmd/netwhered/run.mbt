@@ -369,6 +369,7 @@ fn Live::write_usage(self : Live, now : Int64, settle : Int64) -> Unit {
 ///|
 fn Live::heartbeat(self : Live, state : String) -> Unit {
   let s = @etw.stats()
+  let usage = @sys.self_usage()
   self.db.write_heartbeat({
     pid: @sys.current_pid(),
     started: self.started,
@@ -380,7 +381,13 @@ fn Live::heartbeat(self : Live, state : String) -> Unit {
     events: s.events,
     dropped: s.dropped,
     flows: self.engine.flow_count(),
-    private_bytes: @sys.self_usage().private_bytes,
+    private_bytes: usage.private_bytes,
+    cpu_ms: usage.cpu_ms,
+    callback_ns: s.callback_ns,
+    events_lost: match @etw.session_loss() {
+      Some(l) => l.events_lost + l.realtime_buffers_lost
+      None => 0L
+    },
   }) catch {
     e => self.note(e.to_string())
   }

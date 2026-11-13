@@ -19,7 +19,8 @@ let schema : String =
   #|  started INTEGER NOT NULL, updated INTEGER NOT NULL, state TEXT NOT NULL,
   #|  degraded INTEGER NOT NULL, core_link TEXT NOT NULL, last_error TEXT NOT NULL,
   #|  events INTEGER NOT NULL, dropped INTEGER NOT NULL, flows INTEGER NOT NULL,
-  #|  private_bytes INTEGER NOT NULL
+  #|  private_bytes INTEGER NOT NULL, callback_ns INTEGER NOT NULL,
+  #|  events_lost INTEGER NOT NULL, cpu_ms INTEGER NOT NULL
   #|);
   #|CREATE TABLE IF NOT EXISTS requests(
   #|  id TEXT PRIMARY KEY, kind TEXT NOT NULL, client_pid INTEGER NOT NULL,

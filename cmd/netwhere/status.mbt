@@ -29,8 +29,18 @@ async fn cmd_status(args : ArrayView[String]) -> Int32 {
         )
         println("mihomo: \{h.core_link}")
         println(
-          "events: \{h.events}, dropped: \{h.dropped}, live flows: \{h.flows}, memory: \{@report.human_bytes(h.private_bytes)}",
+          "events: \{h.events}, dropped: \{h.dropped}, lost by ETW: \{h.events_lost}, live flows: \{h.flows}, memory: \{@report.human_bytes(h.private_bytes)}",
         )
+        if h.events > 0L {
+          println("ETW callback: \{h.callback_ns / h.events} ns/event")
+        }
+        let up_s = (h.updated - h.started) / 10_000_000L
+        if up_s > 0L {
+          let permille = h.cpu_ms * 1000L / (up_s * 1000L)
+          println(
+            "CPU: \{h.cpu_ms} ms over \{up_s} s (\{permille / 10L}.\{permille % 10L}% of one core)",
+          )
+        }
       }
       if h.last_error != "" {
         println("last error: \{h.last_error}")

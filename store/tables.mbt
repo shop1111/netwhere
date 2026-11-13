@@ -138,19 +138,26 @@ pub(all) struct Heartbeat {
   dropped : Int64
   flows : Int32
   private_bytes : Int64
+  /// Total time spent in the ETW callback (ns); divide by events.
+  callback_ns : Int64
+  /// Events the kernel reports as lost for the session.
+  events_lost : Int64
+  /// CPU time used by the collector so far (user + kernel, ms).
+  cpu_ms : Int64
 }
 
 ///|
 pub fn Db::write_heartbeat(self : Db, h : Heartbeat) -> Unit raise StoreError {
   self.run(
     (
-      #|INSERT INTO heartbeat(id, pid, started, updated, state, degraded, core_link, last_error, events, dropped, flows, private_bytes)
-      #|VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+      #|INSERT INTO heartbeat(id, pid, started, updated, state, degraded, core_link, last_error, events, dropped, flows, private_bytes, callback_ns, events_lost, cpu_ms)
+      #|VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
       #|ON CONFLICT(id) DO UPDATE SET pid = excluded.pid, started = excluded.started,
       #|  updated = excluded.updated, state = excluded.state, degraded = excluded.degraded,
       #|  core_link = excluded.core_link, last_error = excluded.last_error,
       #|  events = excluded.events, dropped = excluded.dropped, flows = excluded.flows,
-      #|  private_bytes = excluded.private_bytes
+      #|  private_bytes = excluded.private_bytes, callback_ns = excluded.callback_ns,
+      #|  events_lost = excluded.events_lost, cpu_ms = excluded.cpu_ms
     ),
     [
       Int(h.pid.to_int64()),
@@ -164,6 +171,9 @@ pub fn Db::write_heartbeat(self : Db, h : Heartbeat) -> Unit raise StoreError {
       Int(h.dropped),
       Int(h.flows.to_int64()),
       Int(h.private_bytes),
+      Int(h.callback_ns),
+      Int(h.events_lost),
+      Int(h.cpu_ms),
     ],
   )
 }
@@ -171,7 +181,7 @@ pub fn Db::write_heartbeat(self : Db, h : Heartbeat) -> Unit raise StoreError {
 ///|
 pub fn Db::heartbeat(self : Db) -> Heartbeat? raise StoreError {
   let rows = self.query(
-    "SELECT pid, started, updated, state, degraded, core_link, last_error, events, dropped, flows, private_bytes FROM heartbeat WHERE id = 1",
+    "SELECT pid, started, updated, state, degraded, core_link, last_error, events, dropped, flows, private_bytes, callback_ns, events_lost, cpu_ms FROM heartbeat WHERE id = 1",
     [],
   )
   match rows {
@@ -188,6 +198,9 @@ pub fn Db::heartbeat(self : Db) -> Heartbeat? raise StoreError {
         dropped: int_of(r[8]),
         flows: int_of(r[9]).to_int(),
         private_bytes: int_of(r[10]),
+        callback_ns: int_of(r[11]),
+        events_lost: int_of(r[12]),
+        cpu_ms: int_of(r[13]),
       })
     [] => None
   }
