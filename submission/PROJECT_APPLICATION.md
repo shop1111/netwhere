@@ -7,7 +7,7 @@
 - GitHub：https://github.com/shop1111/netwhere
 - Mooncakes：`shop1111/netwhere@0.1.0`（https://mooncakes.io/docs/shop1111/netwhere）
 - 参赛方向：新生态项目建设；项目方向：系统工具 / 网络可观测性
-- 项目性质：原创。功能形态参照 Proxifier、GlassWire；记账规则来自我此前写的 Go 版 MihomoTracker（私有仓库），用 MoonBit 重写，不复用代码
+- 项目性质：原创。功能形态参照 Proxifier、GlassWire，不使用它们的代码
 
 **项目简介**
 
@@ -32,7 +32,7 @@
 
 **当前进展与验证**
 
-第一步（采集进程 + 命令行）代码已完成，20 多个提交，Windows CI 跑 fmt、check、test。在 FlClash（Mihomo）上，系统代理和 TUN 两种模式各录制 6 个场景，全部符合预期，脱敏后放进 `testdata/scenarios/` 由 `moon test` 回放。定长解码和 TDH 逐字段对照 103,671 个字段，没有差异；20 MB 下载与内核计数相差约 1 KB。已安装的采集进程连续运行 2 小时：私有内存 6.6–8.6 MB，CPU 平均 0.52% 单核，31 万个事件零丢失；原 Go 版不开窗口私有内存也约 237 MB。
+第一步（采集进程 + 命令行）代码已完成，20 多个提交，Windows CI 跑 fmt、check、test。在 FlClash（Mihomo）上，系统代理和 TUN 两种模式各录制 6 个场景，全部符合预期，脱敏后放进 `testdata/scenarios/` 由 `moon test` 回放。定长解码和 TDH 逐字段对照 103,671 个字段，没有差异；20 MB 下载与内核计数相差约 1 KB。已安装的采集进程连续运行 2 小时：私有内存 6.6–8.6 MB，CPU 平均 0.52% 单核，31 万个事件零丢失。
 
 0.1.0 已发布到 Mooncakes，全新的消费工程 `moon add` 后调用 `netaddr`、`rules` 通过。还没做：24 小时连续运行。第二步是托盘和 WebView2 界面（报表、明细、待归类、规则），按需启动，关闭后不常驻。
 
