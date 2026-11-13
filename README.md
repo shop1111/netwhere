@@ -129,7 +129,15 @@ moon run cmd/rules-import -- $env:TEMP\dlc\data --apps rules\apps.txt --out rule
 
 - `install`：计划任务、目录权限和隐藏控制台窗口都已核实；在已安装的采集进程上实际跑了 `trace`。
 
-**进行中：** 已安装的采集进程正在做 2 小时的开销采样（`scripts/sample_overhead.py`）。`uninstall` 还没有在实机上运行过。
+- 常驻开销（已安装的采集进程，2 小时，每分钟采样一次，`scripts/sample_overhead.py`）：
+  - 私有内存 6.6–8.6 MB，工作集 7–16 MB；
+  - CPU 平均 0.52% 单核，单分钟最高 1.2%；
+  - ETW 回调平均每个事件约 850 ns；
+  - 共 31 万个事件，丢事件和队列丢弃都是 0。
+
+  作为对比，原 Go 版 MihomoTracker 即使不打开窗口，私有内存也约 237 MB。
+
+**还没做：** `uninstall` 还没有在实机上运行过；24 小时连续运行。
 
 **计划中：** 托盘和图形界面（PLAN.md 第 8 节）。
 

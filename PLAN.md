@@ -159,10 +159,12 @@ netwhere export --csv
 - **已在实机上完成**：
   - 1.0：系统代理和 TUN 两组场景都已录制，共 12 个场景全部符合预期。脱敏后的录制放在 `testdata/scenarios/`，由 `moon test` 回放校验。
   - 1.1：shadow 模式在两次录制中共对照 103,671 个字段，没有任何差异；丢事件为 0。采集进程的默认解码方式已改为 fast。
-- **还需要提权和实机操作**：
-  - 1.4：`netwhere install` 和 24 小时运行。
-  - 1.6：下载 v2fly 数据集，生成 `rules/builtin.txt`。
-  - 1.7：开销测量、发布 Mooncakes。
+  - 1.4：`netwhere install` 已完成，已安装的采集进程连续运行 2 小时，没有丢事件。
+  - 1.6：`rules/builtin.txt` 已从 v2fly@777d056 生成（52 个应用，8,967 条规则）。
+  - 1.7：2 小时开销采样已完成，结果见 DECISIONS.md "常驻开销实测"。
+- **还剩**：
+  - 1.4：24 小时运行；`uninstall` 实机验证。
+  - 1.7：发布 Mooncakes，并用消费工程验证。
 
 ## 8. 第二步：托盘与图形界面
 
