@@ -42,6 +42,15 @@ async fn save_config(dir : String, c : @config.Config) -> Unit {
 }
 
 ///|
+/// False only when the process list is readable and has no netwhered
+/// process with this pid; any doubt counts as alive.
+fn collector_alive(pid : Int32) -> Bool {
+  let procs = @sys.process_list()
+  procs.length() == 0 ||
+  procs.iter().any(p => p.pid == pid && p.exe.to_lower() == "netwhered.exe")
+}
+
+///|
 /// Collector state from the heartbeat: (running, description).
 fn collector_state(h : @store.Heartbeat?, now : Int64) -> (Bool, String) {
   match h {
@@ -50,6 +59,9 @@ fn collector_state(h : @store.Heartbeat?, now : Int64) -> (Bool, String) {
       let age = (now - h.updated) / 10_000_000L
       if h.state == "stopped" {
         (false, "stopped")
+      } else if !collector_alive(h.pid) {
+        // Killed (e.g. the task was ended) before it could say "stopped".
+        (false, "not running (process has exited)")
       } else if age > 15L {
         (false, "not running (last heartbeat \{age} s ago)")
       } else {
