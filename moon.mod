@@ -1,8 +1,10 @@
 name = "shop1111/netwhere"
 
-version = "0.0.1"
+version = "0.1.0"
 
 readme = "README.md"
+
+repository = "https://github.com/shop1111/netwhere"
 
 license = "Apache-2.0"
 
