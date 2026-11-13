@@ -7,6 +7,7 @@ import {
 
 import {
   "shop1111/netwhere/netaddr",
+  "shop1111/netwhere/mihomo",
   "shop1111/netwhere/rules",
   "moonbitlang/core/json",
 } for "test"

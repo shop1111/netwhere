@@ -436,3 +436,79 @@ test "dns hijacked by tun is not flagged inconsistent" {
   assert_eq(f.entry, Tun)
   assert_false(f.inconsistent)
 }
+
+///|
+test "a long-lived connection keeps its exit after eviction runs" {
+  let rules = @rules.RuleSet::new()
+  let conn =
+    #|{"connections":[{"id":"long","metadata":{"network":"tcp","type":"HTTPS",
+    #| "sourceIP":"127.0.0.1","sourcePort":"61000","host":"api.example.com",
+    #| "process":"curl.exe"},"start":"2026-11-13T00:18:04.8293434+08:00",
+    #| "chains":["HK 01","Proxy"],"rule":"Match","rulePayload":""}]}
+  let e = run(header(), [
+    curl_start(0L),
+    // curl resolved localhost, which is also the proxy's address.
+    Dns({
+      t: t0,
+      id: 3008,
+      header_pid: curl_pid,
+      client_pid: None,
+      name: "localhost",
+      status: 0,
+      results: "127.0.0.1;",
+    }),
+    net(1L * sec, 11, curl_pid, "127.0.0.1", 61000, "127.0.0.1", 7890, 500),
+    snapshot(2L * sec, conn),
+  ])
+  ignore(e.take_usage(rules, t0 + 10L * sec))
+  // Ten minutes on, Mihomo still lists it and it still carries bytes.
+  for m in 1..<=10 {
+    let t = t0 + (m * 60).to_int64() * sec
+    e.on_core_snapshot(t, @mihomo.decode_snapshot(@json.parse(conn)))
+    e.on_net(
+      @ledger.normalize_net({
+        t,
+        id: 11,
+        pid: curl_pid,
+        size: 100,
+        saddr: "127.0.0.1",
+        sport: 61000,
+        daddr: "127.0.0.1",
+        dport: 7890,
+      }).unwrap(),
+    )
+    ignore(e.evict_idle(t, 120L * sec))
+  }
+  let rows = e.take_usage(rules, t0 + 700L * sec)
+  inspect(
+    rows
+    .map(r => "\{r.domain} \{r.entry} \{r.exit} \{r.down}")
+    .iter()
+    .fold(init=Map([]), (m : Map[String, Int64], k) => {
+      m[k] = m.get(k).unwrap_or(0L) + 1L
+      m
+    })
+    .keys()
+    .collect()
+    .join("\n"),
+    content="api.example.com proxy-port node:HK 01 100",
+  )
+  // Without a core record, a proxy-port flow gets no name from DNS.
+  let e2 = run(header(), [
+    curl_start(0L),
+    Dns({
+      t: t0,
+      id: 3009,
+      header_pid: curl_pid,
+      client_pid: None,
+      name: "localhost",
+      status: 0,
+      results: "127.0.0.1;",
+    }),
+    net(1L * sec, 11, curl_pid, "127.0.0.1", 61001, "127.0.0.1", 7890, 500),
+  ])
+  inspect(
+    describe(e2.flows()[0]),
+    content="curl.exe tcp 127.0.0.1:7890 entry=proxy-port exit=unknown domain= up=0 down=500",
+  )
+}

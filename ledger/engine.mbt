@@ -548,8 +548,11 @@ fn Engine::summarize(self : Engine, f : Flow) -> FlowSummary {
     (_, Some(c)) => exit_of(c.outbound)
     (_, None) => Unknown
   }
-  let (domain, domain_source) = match core {
-    Some(c) if c.host != "" => (c.host, FromCore)
+  let (domain, domain_source) = match (f.entry, core) {
+    (_, Some(c)) if c.host != "" => (c.host, FromCore)
+    // The peer of a proxy-port flow is the proxy itself: a name that
+    // resolves to it (say "localhost") says nothing about the target.
+    (ProxyPort, _) => ("", NoDomain)
     _ =>
       match self.dns_by_proc.get((f.key.pid, f.key.peer.addr)) {
         Some(n) => (n, FromProcessDns)
@@ -818,18 +821,24 @@ pub fn Engine::evict_idle(
   for k in keep {
     self.order.push(k)
   }
+  // A core record stays while its connection was seen recently: a
+  // long-lived connection is relisted by every snapshot, which moves
+  // seen_until, however long ago it started.
   let ports = self.core_by_port.keys().collect()
   for port in ports {
-    let fresh = self.core_by_port[port].filter(c => c.t >= now - idle)
+    let fresh = self.core_by_port[port].filter(c => c.seen_until >= now - idle)
     if fresh.length() == 0 {
       self.core_by_port.remove(port)
     } else {
       self.core_by_port[port] = fresh
     }
   }
-  // Snapshot ids only matter while their connection can still be joined.
-  if self.seen_core_ids.length() > 100_000 {
-    self.seen_core_ids.clear()
+  // Forgotten ids are re-added if a later snapshot lists them again.
+  let ids = self.seen_core_ids.keys().collect()
+  for id in ids {
+    if self.seen_core_ids[id].seen_until < now - idle {
+      self.seen_core_ids.remove(id)
+    }
   }
   gone
 }
