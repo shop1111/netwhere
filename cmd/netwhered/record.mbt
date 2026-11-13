@@ -168,6 +168,7 @@ async fn build_header(
     tun,
     listeners,
     procs,
+    controller: opts.controller,
   }
   (header, tun.map(t => t.if_index), core_note)
 }

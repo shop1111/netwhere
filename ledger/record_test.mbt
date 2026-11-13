@@ -18,6 +18,7 @@ fn sample_recording() -> @ledger.Recording {
       ],
       listeners: [{ addr: ip("127.0.0.1"), port: 7890, pid: 14948, }],
       procs: [{ pid: 14948, ppid: 900, image: "FlClashCore.exe", }],
+      controller: "127.0.0.1:9090",
     },
     records: [
       ProcStart({

@@ -56,6 +56,7 @@ fn header(tun~ : Bool = false) -> @ledger.Header {
       { addr: ipa("127.0.0.1"), port: 5000, pid: 999, },
     ],
     procs: [],
+    controller: "127.0.0.1:9090",
   }
 }
 
@@ -381,4 +382,39 @@ test "take_usage hands out each byte once, after the settle time" {
   // Idle flows with nothing pending are forgotten.
   assert_eq(e.evict_idle(t0 + 600L * sec, 120L * sec), 1)
   assert_eq(e.flow_count(), 0)
+}
+
+///|
+test "controller API traffic is not proxy traffic" {
+  let h = {
+    ..header(),
+    listeners: [{ addr: ipa("127.0.0.1"), port: 9090, pid: core_pid, }],
+  }
+  let e = run(h, [
+    net(0L, 11, curl_pid, "127.0.0.1", 60001, "127.0.0.1", 9090, 1000),
+  ])
+  assert_eq(e.flows().length(), 0)
+  assert_eq(e.totals().dropped_loopback, 1000L)
+}
+
+///|
+test "a connection opened before observation joins its snapshot" {
+  // Mihomo says it started an hour before t0 and still lists it at t0+2s.
+  let e = run(header(), [
+    curl_start(0L),
+    net(1L * sec, 11, curl_pid, "127.0.0.1", 61000, "127.0.0.1", 7890, 500),
+    snapshot(
+      2L * sec,
+      (
+        #|{"connections":[{"id":"old","metadata":{"network":"tcp","type":"HTTP",
+        #| "sourceIP":"127.0.0.1","sourcePort":"61000","host":"api.example.com",
+        #| "process":"curl.exe"},"start":"2026-11-13T00:18:04.8293434+08:00",
+        #| "chains":["HK 01","Proxy"],"rule":"Match","rulePayload":""}]}
+      ),
+    ),
+  ])
+  inspect(
+    describe(e.flows()[0]),
+    content="curl.exe tcp 127.0.0.1:7890 entry=proxy-port exit=node:HK 01 domain=api.example.com up=0 down=500",
+  )
 }

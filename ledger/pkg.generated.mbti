@@ -12,6 +12,8 @@ import {
 // Values
 pub fn base_name(String) -> String
 
+pub fn controller_port(String) -> Int32?
+
 pub let inconsistent_after : Int64
 
 pub let join_window : Int64
@@ -35,6 +37,8 @@ pub let record_version : Int32
 pub fn replay(Recording) -> (Engine, ReplayStats)
 
 pub let ticks_per_second : Int64
+
+pub fn totals_of(Array[FlowSummary]) -> Totals
 
 // Errors
 #derive(@debug.Debug)
@@ -95,7 +99,7 @@ pub fn Engine::flows(Self) -> Array[FlowSummary]
 pub fn Engine::flows_of(Self, Array[Int32]) -> Array[FlowSummary]
 pub fn Engine::image_of(Self, Int32) -> String?
 pub fn Engine::is_core(Self, Int32) -> Bool
-pub fn Engine::new(EngineEnv, cores? : Array[(Int32, String)], tun_prefixes? : Array[@netaddr.Cidr]) -> Self
+pub fn Engine::new(EngineEnv, cores? : Array[(Int32, String)], tun_prefixes? : Array[@netaddr.Cidr], api_ports? : Array[Int32]) -> Self
 pub fn Engine::on_core_log(Self, Int64, @mihomo.ConnLog) -> Unit
 pub fn Engine::on_core_snapshot(Self, Int64, @mihomo.Snapshot) -> Unit
 pub fn Engine::on_dns(Self, DnsAnswer) -> Unit
@@ -105,6 +109,7 @@ pub fn Engine::parent_of(Self, Int32) -> Int32?
 pub fn Engine::process_tree(Self, Int32) -> Array[Int32]
 pub fn Engine::seed_parent(Self, Int32, Int32) -> Unit
 pub fn Engine::seed_process(Self, Int32, String) -> Unit
+pub fn Engine::set_api_ports(Self, Array[Int32]) -> Unit
 pub fn Engine::set_core(Self, Int32, String) -> Unit
 pub fn Engine::take_usage(Self, @rules.RuleSet, Int64, settle? : Int64) -> Array[UsageRow]
 pub fn Engine::totals(Self) -> Totals
@@ -165,6 +170,7 @@ pub(all) struct Header {
   tun : Array[TunInfo]
   listeners : Array[Listener]
   procs : Array[ProcInfo]
+  controller : String
 }
 pub fn Header::to_line(Self) -> String
 

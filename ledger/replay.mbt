@@ -65,6 +65,10 @@ pub fn replay(rec : Recording) -> (Engine, ReplayStats) {
     env,
     cores=rec.header.cores.map(c => (c.pid, c.name)),
     tun_prefixes~,
+    api_ports=match controller_port(rec.header.controller) {
+      Some(p) => [p]
+      None => []
+    },
   )
   for p in rec.header.procs {
     engine.seed_process(p.pid, p.image)

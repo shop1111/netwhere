@@ -133,6 +133,8 @@ priv struct CoreInfo {
   group : String
   rule : String
   from_snapshot : Bool
+  /// Last snapshot that still listed the connection (snapshots only).
+  mut seen_until : Ticks
 }
 
 ///|
@@ -147,7 +149,10 @@ pub struct Engine {
   priv dns_by_proc : Map[(Int32, @netaddr.IpAddr), String]
   priv dns_any : Map[@netaddr.IpAddr, String]
   priv core_by_port : Map[Int32, Array[CoreInfo]]
-  priv seen_core_ids : Map[String, Bool]
+  priv seen_core_ids : Map[String, CoreInfo]
+  /// Core-owned loopback ports that are APIs, not proxy inbounds (the
+  /// external controller): traffic to them is not counted.
+  priv api_ports : Array[Int32]
   mut core_out_up : Int64
   mut core_out_down : Int64
   mut dropped_mirror : Int64
@@ -159,6 +164,7 @@ pub fn Engine::new(
   env : EngineEnv,
   cores~ : Array[(Int32, String)] = [],
   tun_prefixes~ : Array[@netaddr.Cidr] = [],
+  api_ports~ : Array[Int32] = [],
 ) -> Engine {
   let core_pids = Map([])
   for c in cores {
@@ -176,6 +182,7 @@ pub fn Engine::new(
     dns_any: Map([]),
     core_by_port: Map([]),
     seen_core_ids: Map([]),
+    api_ports,
     core_out_up: 0L,
     core_out_down: 0L,
     dropped_mirror: 0L,
@@ -203,6 +210,37 @@ pub fn Engine::seed_parent(self : Engine, pid : Int32, ppid : Int32) -> Unit {
 /// ports reported by /configs).
 pub fn Engine::set_core(self : Engine, pid : Int32, name : String) -> Unit {
   self.core_pids[pid] = name
+}
+
+///|
+/// Replaces the core API ports (see Engine::new).
+pub fn Engine::set_api_ports(self : Engine, ports : Array[Int32]) -> Unit {
+  self.api_ports.clear()
+  for p in ports {
+    self.api_ports.push(p)
+  }
+}
+
+///|
+/// Per-entry totals and unknown-exit bytes of the given flows only.
+pub fn totals_of(flows : Array[FlowSummary]) -> Totals {
+  let by_entry = Map([])
+  let mut unknown_exit = 0L
+  for f in flows {
+    let (u, d) = by_entry.get(f.entry).unwrap_or((0L, 0L))
+    by_entry[f.entry] = (u + f.up, d + f.down)
+    if f.exit == Unknown {
+      unknown_exit += f.up + f.down
+    }
+  }
+  {
+    by_entry,
+    unknown_exit,
+    core_outbound_up: 0L,
+    core_outbound_down: 0L,
+    dropped_mirror: 0L,
+    dropped_loopback: 0L,
+  }
 }
 
 ///|
@@ -265,7 +303,8 @@ pub fn Engine::on_net(self : Engine, e : NetEvent) -> Unit {
     None => {
       let entry = if e.peer.addr.is_loopback() {
         match (self.env.listener_pid)(e.peer.addr, e.peer.port) {
-          Some(owner) if self.is_core(owner) => Some(ProxyPort)
+          Some(owner) if self.is_core(owner) &&
+            !self.api_ports.contains(e.peer.port) => Some(ProxyPort)
           _ => None
         }
       } else if (self.env.via_tun)(e.peer.addr) {
@@ -339,15 +378,18 @@ pub fn Engine::on_core_snapshot(
   snap : @mihomo.Snapshot,
 ) -> Unit {
   for c in snap.conns {
-    if self.seen_core_ids.contains(c.id) {
+    if self.seen_core_ids.get(c.id) is Some(known) {
+      // Still alive at t: extends the time it can be joined with.
+      if t > known.seen_until {
+        known.seen_until = t
+      }
       continue
     }
-    self.seen_core_ids[c.id] = true
     let group = match c.chains {
       [] => ""
       xs => xs[xs.length() - 1]
     }
-    self.add_core_info(c.source_port, {
+    let info : CoreInfo = {
       t: match c.start {
         Some(s) => s
         None => t
@@ -364,7 +406,10 @@ pub fn Engine::on_core_snapshot(
         "\{c.rule}(\{c.rule_payload})"
       },
       from_snapshot: true,
-    })
+      seen_until: t,
+    }
+    self.seen_core_ids[c.id] = info
+    self.add_core_info(c.source_port, info)
   }
 }
 
@@ -393,6 +438,7 @@ pub fn Engine::on_core_log(
       "\{l.rule}(\{l.rule_payload})"
     },
     from_snapshot: false,
+    seen_until: t,
   })
 }
 
@@ -434,8 +480,15 @@ fn Engine::core_match(self : Engine, f : Flow) -> CoreInfo? {
       c.process.to_lower() != proc {
       continue
     }
+    // A snapshot proves the connection was alive from its start until it
+    // was last listed; while alive, its source port cannot belong to
+    // another socket, so any overlap with the flow is the same connection
+    // (this joins connections opened before observation began). A log
+    // line only marks the start, so it must be close to the flow's start.
     let dt = abs64(c.t - f.first)
-    if dt > join_window {
+    let overlaps = c.t - join_window <= f.last &&
+      c.seen_until + join_window >= f.first
+    if (c.from_snapshot && !overlaps) || (!c.from_snapshot && dt > join_window) {
       continue
     }
     // Snapshots carry the full chain: prefer them, then the closest time.

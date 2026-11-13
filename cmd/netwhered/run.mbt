@@ -171,6 +171,13 @@ async fn Live::check_config(self : Live) -> Unit {
   match (Ok(@config.parse(text)) catch { e => Err(e) }) {
     Ok(c) => {
       self.config = c
+      // The controller port is the core's API, not a proxy inbound.
+      self.engine.set_api_ports(
+        match @ledger.controller_port(c.controller) {
+          Some(p) => [p]
+          None => []
+        },
+      )
       let (set, n) = load_rules(self.dir, c)
       self.rules = set
       self.note(

@@ -71,6 +71,9 @@ pub(all) struct Header {
   listeners : Array[Listener]
   /// Optional in the file; missing means no snapshot was taken.
   procs : Array[ProcInfo]
+  /// Mihomo external controller "host:port" ("" when unknown, optional in
+  /// the file): its port is an API, not a proxy inbound.
+  controller : String
 }
 
 ///|
@@ -182,6 +185,7 @@ pub fn Header::to_line(self : Header) -> String {
         }),
       ),
     ),
+    ("controller", Json::string(self.controller)),
   ]).stringify()
 }
 
@@ -457,6 +461,11 @@ fn parse_header(f : Fields) -> Header raise RecordError {
     tun,
     listeners,
     procs,
+    controller: if f.map.contains("controller") {
+      f.str("controller")
+    } else {
+      ""
+    },
   }
 }
 
@@ -546,5 +555,25 @@ pub fn parse_recording(text : StringView) -> Recording raise RecordError {
   match header {
     Some(header) => { header, records, }
     None => raise RecordError(line=0, msg="empty recording")
+  }
+}
+
+///|
+/// Port of a "host:port" controller address, if any.
+pub fn controller_port(addr : String) -> Int32? {
+  guard addr.rev_find(":") is Some(i) else { return None }
+  let p = addr[i + 1:]
+  if p.length() == 0 || p.length() > 5 {
+    return None
+  }
+  let mut v = 0
+  for c in p {
+    guard c is ('0'..<='9') else { return None }
+    v = v * 10 + (c.to_int() - '0'.to_int())
+  }
+  if v > 0 && v < 65536 {
+    Some(v)
+  } else {
+    None
   }
 }

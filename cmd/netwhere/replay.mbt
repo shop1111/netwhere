@@ -105,6 +105,15 @@ async fn cmd_replay(args : ArrayView[String]) -> Int32 {
   println(@report.flow_table(flows, core).trim_end())
   println("")
   println("totals:")
-  println(@report.totals_text(engine.totals(), core).trim_end())
+  println(
+    @report.totals_text(
+      if pid > 0 {
+        @ledger.totals_of(flows)
+      } else {
+        engine.totals()
+      },
+      core,
+    ).trim_end(),
+  )
   0
 }

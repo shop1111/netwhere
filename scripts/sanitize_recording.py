@@ -160,6 +160,31 @@ def main(argv):
             elif r["id"] in UDP_RECV:
                 addrs.get(r["da"], local=True)
 
+    # Remote addresses of the core's own outbound connections are proxy
+    # servers (subscription nodes) or its upstream DNS: replace them too.
+    core_pids = {c["pid"] for c in header["cores"]}
+    upstream = {}
+
+    def upstream_addr(a):
+        if a not in upstream:
+            n = len(upstream) + 1
+            try:
+                v6 = ipaddress.ip_address(a).version == 6
+            except ValueError:
+                return a
+            upstream[a] = ("2001:db8:ffff::%x" % n) if v6 else ("203.0.113.%d" % n)
+        return upstream[a]
+
+    for r in records:
+        if r["k"] == "net" and r["pid"] in core_pids:
+            remote = r["sa"] if r["id"] in UDP_RECV else r["da"]
+            try:
+                ip = ipaddress.ip_address(remote)
+            except ValueError:
+                continue
+            if not (ip.is_loopback or ip.is_private or (ip.version == 4 and ip in FAKE_IP)):
+                upstream_addr(remote)
+
     names_map = NameMap()
 
     def redact_domain(s):
@@ -184,8 +209,8 @@ def main(argv):
             if r["pid"] not in keep:
                 drop(k)
                 continue
-            r["sa"] = addrs.get(r["sa"])
-            r["da"] = addrs.get(r["da"])
+            r["sa"] = upstream.get(r["sa"]) or addrs.get(r["sa"])
+            r["da"] = upstream.get(r["da"]) or addrs.get(r["da"])
             kept_peers.add(r["da"])
             kept_peers.add(r["sa"])
         elif k == "dns":
@@ -235,7 +260,7 @@ def main(argv):
                 line = line[:u + 7] + names_map.chain_text(line[u + 7:])
             r["line"] = scrub(line)
         elif k == "route":
-            r["dst"] = addrs.get(r["dst"])
+            r["dst"] = upstream.get(r["dst"]) or addrs.get(r["dst"])
             r["ifname"] = "TUN" if r["tun"] else "LAN"
         elif k == "listen":
             r["items"] = [l for l in r["items"] if l["pid"] in keep]
@@ -255,6 +280,9 @@ def main(argv):
         nets = [(p, ipaddress.ip_network(p, strict=False)) for p in t["prefixes"]]
         t["prefixes"] = [p for p, n in nets if n.version == 4 and n.subnet_of(FAKE_IP)]
     header["note"] = scrub(header.get("note", ""))
+    # Older recordings lack the controller; the manifest has it.
+    if not header.get("controller"):
+        header["controller"] = manifest.get("controller", "127.0.0.1:9090")
 
     out_dir.mkdir(parents=True, exist_ok=True)
     mode = manifest["mode"]
@@ -269,7 +297,8 @@ def main(argv):
     print("kept %d of %d records; dropped %s" % (len(out), len(records),
           ", ".join("%s=%d" % kv for kv in sorted(dropped.items())) or "nothing"))
     print("kept processes: %s" % ", ".join(sorted(names)))
-    print("mapped %d addresses, %d nodes, %d groups" % (len(addrs.map), len(names_map.nodes), len(names_map.groups)))
+    print("mapped %d addresses, %d core upstreams, %d nodes, %d groups" % (
+        len(addrs.map), len(upstream), len(names_map.nodes), len(names_map.groups)))
     print("review before committing: %s" % (out_dir / (mode + ".ndjson")))
 
 
