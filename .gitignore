@@ -5,3 +5,7 @@ _build/
 # Raw (unsanitized) recordings and probe output never leave the machine.
 **/evidence/raw/
 **/raw/
+
+# Planning notes stay local; not published.
+/PLAN.md
+/DECISIONS.md

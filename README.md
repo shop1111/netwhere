@@ -140,7 +140,7 @@ moon run cmd/rules-import -- $env:TEMP\dlc\data --apps rules\apps.txt --out rule
 
 **还没做：** 24 小时连续运行。
 
-**计划中：** 托盘和图形界面（PLAN.md 第 8 节）。
+**计划中：** 托盘和图形界面。
 
 ## 已知限制
 

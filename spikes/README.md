@@ -1,8 +1,7 @@
 # spikes
 
 One-off feasibility programs. Each directory is its own MoonBit module, so its
-dependencies never leak into `shop1111/netwhere`. Findings are recorded in
-[../DECISIONS.md](../DECISIONS.md) (2026-11-13, trust boundary).
+dependencies never leak into `shop1111/netwhere`.
 
 | dir | question |
 |---|---|
