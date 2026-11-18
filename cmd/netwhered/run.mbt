@@ -663,10 +663,11 @@ async fn run_collector(opts : RunOptions) -> Int32 {
         )
       })
       group.spawn_bg(no_wait=true, () => {
+        let logs = @mihomo.ConnLogParser::new()
         ctl.watch_logs(text => {
           match (Ok(@mihomo.parse_log_message(text)) catch { e => Err(e) }) {
             Ok(m) =>
-              if @mihomo.parse_conn_log(m.payload) is Some(l) {
+              if logs.feed(m.payload) is Some(l) {
                 engine.on_core_log(@sys.now(), l)
               }
             Err(_) => ()

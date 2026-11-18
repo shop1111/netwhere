@@ -1,0 +1,59 @@
+{
+  "mode": "singbox",
+  "recording": "singbox.ndjson",
+  "controller": "127.0.0.1:9091",
+  "proxy_port": 7891,
+  "env_proxy": true,
+  "git_proxy": false,
+  "system_proxy": true,
+  "scenarios": [
+    {
+      "name": "singbox-node",
+      "command": "C:\\WINDOWS\\System32\\curl.exe -s -o NUL -x http://127.0.0.1:7891 \"https://speed.cloudflare.com/__down?bytes=5000000\"",
+      "pid": 14684,
+      "exit_code": 0,
+      "started": "2026-11-18T09:25:07.5983250Z",
+      "expect": [
+        {
+          "process": "curl.exe",
+          "entry": "proxy-port",
+          "exit": "node",
+          "down_min": 5000000,
+          "only": true
+        }
+      ]
+    },
+    {
+      "name": "singbox-direct-tag",
+      "command": "C:\\WINDOWS\\System32\\curl.exe -s -o NUL -x http://127.0.0.1:7891 https://www.baidu.com",
+      "pid": 2940,
+      "exit_code": 0,
+      "started": "2026-11-18T09:25:11.6535443Z",
+      "expect": [
+        {
+          "process": "curl.exe",
+          "entry": "proxy-port",
+          "exit": "DIRECT (core)",
+          "down_min": 1000,
+          "only": true
+        }
+      ]
+    },
+    {
+      "name": "singbox-short",
+      "command": "C:\\WINDOWS\\System32\\curl.exe -s -o NUL -o NUL -o NUL -x http://127.0.0.1:7891 https://www.baidu.com/robots.txt \"https://speed.cloudflare.com/__down?bytes=200000\" https://github.com/robots.txt",
+      "pid": 26912,
+      "exit_code": 0,
+      "started": "2026-11-18T09:25:14.6874471Z",
+      "expect": [
+        {
+          "process": "curl.exe",
+          "entry": "proxy-port",
+          "exit": "core",
+          "down_min": 1000,
+          "only": true
+        }
+      ]
+    }
+  ]
+}

@@ -10,7 +10,7 @@
 
 **项目简介**
 
-开着代理时，经常说不清某个程序的流量到底走了哪里：进了代理没有，走的哪个节点，还是直接出去了。现有的 Clash/Mihomo 流量统计工具只能看到进入代理内核的连接，而"为什么没走代理"恰恰发生在内核看不见的那部分。netwhere 用 Windows 的 ETW 事件按程序记下本机全部流量，再用源端口关联 Mihomo 的连接记录。它是一个排障工具，回答三个问题：
+开着代理时，经常说不清某个程序的流量到底走了哪里：进了代理没有，走的哪个节点，还是直接出去了。现有的 Clash/Mihomo 流量统计工具只能看到进入代理内核的连接，而"为什么没走代理"恰恰发生在内核看不见的那部分。netwhere 用 Windows 的 ETW 事件按程序记下本机全部流量，再用源端口关联代理内核（Mihomo、sing-box）的连接记录。它是一个排障工具，回答三个问题：
 
 1. **流量走了哪：** 每份流量记两层，入口（经代理端口 / 经 TUN / 绕过内核 / 局域网）和出口（哪个节点 / 内核直连）。
 2. **为什么没走代理：** 对绕过内核的连接给出候选原因、所依据的事实和确定程度；依据不够时写"未判定"，不猜。
@@ -21,7 +21,7 @@
 **适用范围**
 
 - **入口层与内核无关。** 代理端口和 TUN 的识别依据是本机监听表、本地地址和路由，Mihomo、sing-box、Xray 等内核都适用；"某程序绕过了代理"这个结论不依赖任何内核。
-- **出口层需要 Mihomo。** 节点、命中规则来自 Mihomo 的 Controller API（只读）。Mihomo 是 Clash Verge Rev、FlClash、Mihomo Party 等主流桌面客户端共用的内核；其他内核只有入口信息。
+- **出口层支持实现了 Clash API 的内核：Mihomo 和 sing-box。** 节点、命中规则来自内核的 Clash API（只读）。Mihomo 是 Clash Verge Rev、FlClash、Mihomo Party 等桌面客户端共用的内核；sing-box 是另一大类客户端的内核。两者接口相近，差异在于 sing-box 默认不报告进程、一个连接的日志分成多行，netwhere 按连接 id 拼接，并从日志学到每个出站标签的类型。Xray、V2Ray 没有按连接查询的接口，只有入口信息。
 - **只做 Windows。** ETW 不装驱动、不抓包就能按进程记账，这是本项目选 Windows 的原因；Linux/macOS 需要完全不同的采集方式（eBPF、NetworkExtension），不在本项目范围内。
 - 不做：拦截、限速、修改代理规则；抓包、解密、保存 URL。
 
@@ -106,7 +106,7 @@ netwhere 看得到"绕过了"，看不到程序内部为什么这么决定，所
 |---|---|---|---|
 | 测量 | 每个 socket 的字节数、所属进程 | ETW Kernel-Network，进程取事件里的 `PID` 字段 | 定长解码与 TDH 逐字段对照 103,671 个字段无差异；20 MB 下载与 Mihomo 计数差约 1 KB；含 TLS、HTTP 开销 |
 | 判定 | 入口 | 首个事件时的本地地址、监听表、路由 | 三份录制共 21 个场景全部符合预期；建立后的路由变化不追踪 |
-| 关联 | 出口 | 源端口 + 进程名 + 5 秒窗口 | 每条连接标关联方式；未知、歧义单列，不计入已知节点 |
+| 关联 | 出口 | 源端口 + 进程名 + 5 秒窗口 | 每条连接标关联方式；未知、歧义单列，不计入已知节点；sing-box 默认不报告进程，只靠源端口和时间窗口，日志里没出现过的出站标签按名字判断是否直连 |
 | 推断 | 绕过原因 | 上面的规则表 | 只给候选和依据；`likely` 取决于程序内部行为 |
 | 估算 | 套餐消耗 | 节点流量 × 倍率 | 给上下限；不含代理协议开销；倍率来自配置或节点名，可能与机场实际计费不同 |
 | 覆盖 | 漏掉了什么 | 按分钟的覆盖记录 | 采集进程不在、Mihomo 断开、丢事件的时段都会列出；有缺口时字节数是下限 |
@@ -117,13 +117,13 @@ netwhere 看得到"绕过了"，看不到程序内部为什么这么决定，所
 
 - 采集：ETW 只订阅 Kernel-Network、DNS-Client、Kernel-Process 三类事件。C 回调按事件 id 定长解码放进环形队列，MoonBit 主循环取出记账，每 10 秒写一次 SQLite（用量和覆盖记录）。
 - 入口判定：回环端口的监听者是不是代理内核（`GetExtendedTcpTable`），本地地址是否在 TUN 网段，目的地址走哪块网卡（`GetBestRoute2`）。内核在回环和 TUN 网段上的流量是应用流量的镜像，不重复计。
-- 出口关联：按（源端口，进程，时间窗口）匹配 Mihomo 的 `/connections` 快照；落在两次快照之间的短连接，用 `/logs` 兜底；记录关联方式。
+- 出口关联：按（源端口，进程，时间窗口）匹配内核 Clash API 的 `/connections` 快照；落在两次快照之间的短连接，用 `/logs` 兜底（Mihomo 每个连接一行，sing-box 按连接 id 拼接多行）；记录关联方式。sing-box 的 `/configs` 不报告 TUN，TUN 网卡取通往外网的路由所经过的 Wintun 虚拟网卡。
 - 权限：只有后台采集进程提权（登录时由计划任务启动），命令行是普通权限，两边只通过文件交换。账本对用户只读；用户能写的只有请求 JSON 和 `config.json`，提权进程用 MoonBit 代码逐项校验。`trace` 的命令先挂起启动，采集进程核对它的父进程后才恢复。没安装采集进程时降级，只用 DNS-Client 和 Mihomo 数据，并标明看不到直连流量。
 - 可单独复用的包：`netaddr`、`ledger`（纯计算的记账引擎）、`diagnose`（绕过原因）、`rules`、`mihomo` 全后端可用；`etw`、`route`、`store` 为 native。
 
 **当前进展与验证**
 
-采集进程和命令行已完成，Windows CI 跑 fmt、check、test，共 106 个测试。在 FlClash（Mihomo）上录了三份：系统代理模式两份（终端有无代理变量各一份），TUN 模式一份，共 21 个场景，全部符合预期（其中绑定物理网卡那个命令按预期超时，只核对诊断）。录制脱敏后放进 `testdata/scenarios/` 由 `moon test` 回放，诊断结果也有快照断言。三次录制 ETW 丢事件均为 0，定长解码与 TDH 逐字段对照无差异。已安装的采集进程连续运行 2 小时：私有内存 6.6–8.6 MB，CPU 平均 0.52% 单核，31 万个事件零丢失。
+采集进程和命令行已完成，Windows CI 跑 fmt、check、test，共 112 个测试。在 FlClash（Mihomo）上录了三份：系统代理模式两份（终端有无代理变量各一份），TUN 模式一份，共 21 个场景，全部符合预期（其中绑定物理网卡那个命令按预期超时，只核对诊断）。在官方 sing-box 1.14.4 上录了一份代理端口模式（3 个场景）：出口为 http 出站（节点）、自定义名字的直连出站（由日志识别为直连）、一条命令里的多个短连接（部分只靠日志关联上），全部符合预期。录制脱敏后放进 `testdata/scenarios/` 由 `moon test` 回放，诊断结果也有快照断言。四次录制 ETW 丢事件均为 0，定长解码与 TDH 逐字段对照无差异。已安装的采集进程连续运行 2 小时：私有内存 6.6–8.6 MB，CPU 平均 0.52% 单核，31 万个事件零丢失。
 
 本轮（0.2.0）根据初审意见新增：绕过原因诊断、出口关联方式与歧义标记、绑定物理网卡的识别、按分钟的覆盖记录、套餐估算区间；账本 schema 升到 2，旧账本原地升级。0.2.0 已发布到 Mooncakes（2026-11-18），全新的消费工程 `moon add` 后调用 `diagnose`、`netaddr` 通过；0.1.0 发布时验证过 `netaddr`、`rules`。
 
@@ -132,5 +132,5 @@ netwhere 看得到"绕过了"，看不到程序内部为什么这么决定，所
 **参考与许可**
 
 - v2fly/domain-list-community（https://github.com/v2fly/domain-list-community ，MIT）：内置分类规则数据，由 `cmd/rules-import` 从 commit 777d056 生成。
-- 依据 Microsoft ETW / TDH / IP Helper 文档和 Mihomo Controller API（只读 `/connections`、`/logs`、`/configs`）。
+- 依据 Microsoft ETW / TDH / IP Helper 文档，Mihomo Controller API 与 sing-box 的 Clash API 实现（只读 `/connections`、`/logs`、`/configs`；sing-box 的字段和日志格式按其源码 `experimental/clashapi`、`log/format.go` 核对）。
 - 依赖 `moonbitlang/async`、`moonbit-community/sqlite3`。本项目 Apache-2.0。

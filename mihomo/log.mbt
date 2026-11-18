@@ -51,6 +51,9 @@ pub(all) struct ConnLog {
   group : String
   /// The outbound that carried the connection (node, DIRECT, REJECT, ...).
   outbound : String
+  /// Protocol of that outbound when the log says it (sing-box: "direct",
+  /// "vless", ...); "" for Mihomo, whose DIRECT/REJECT are fixed names.
+  outbound_type : String
 }
 
 ///|
@@ -154,5 +157,6 @@ pub fn parse_conn_log(payload : StringView) -> ConnLog? {
     rule_payload,
     group,
     outbound,
+    outbound_type: "",
   })
 }

@@ -3,6 +3,7 @@ package "shop1111/netwhere/route"
 
 import {
   "moonbitlang/core/debug",
+  "shop1111/netwhere/mihomo",
   "shop1111/netwhere/netaddr",
 }
 
@@ -11,7 +12,13 @@ pub fn best_route(@netaddr.IpAddr) -> BestRoute raise RouteError
 
 pub fn dos_devices() -> Array[(String, String)] raise RouteError
 
+pub fn find_tun(@mihomo.CoreConfig?, Array[Interface], Int32?) -> Array[Interface]
+
+pub let if_type_prop_virtual : Int32
+
 pub fn interfaces() -> Array[Interface] raise RouteError
+
+pub fn internet_route_if() -> Int32?
 
 pub fn tcp_listeners() -> Array[TcpListener] raise RouteError
 

@@ -78,6 +78,7 @@ pub fn replay(rec : Recording) -> (Engine, ReplayStats) {
   let mut dns_ignored = 0
   let mut core_frames_bad = 0
   let mut core_log_other = 0
+  let logs = @mihomo.ConnLogParser::new()
   for r in rec.records {
     match r {
       Net(raw) =>
@@ -98,9 +99,10 @@ pub fn replay(rec : Recording) -> (Engine, ReplayStats) {
           _ => core_frames_bad += 1
         }
       MihomoLog(t, line) =>
-        match @mihomo.parse_conn_log(line) {
+        match logs.feed(line) {
           Some(l) => engine.on_core_log(t, l)
-          None => core_log_other += 1
+          // sing-box lines that only start a connection are not "other".
+          None => if !@mihomo.is_conn_log_line(line) { core_log_other += 1 }
         }
       Route(_) | Listeners(_, _) => ()
     }

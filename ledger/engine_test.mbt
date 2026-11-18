@@ -604,3 +604,58 @@ test "route says TUN but the socket is bound to another adapter: bypass" {
   assert_eq(fs[1].entry, Tun)
   assert_false(fs[1].bound_off_tun)
 }
+
+///|
+test "sing-box: snapshot and multi-line logs join; a direct tag is learned from logs" {
+  let e = run(header(), [
+    curl_start(0L),
+    // Long connection: listed by a snapshot and logged.
+    net(0L, 10, curl_pid, "127.0.0.1", 51234, "127.0.0.1", 7890, 900),
+    MihomoLog(
+      t0 + 1L,
+      "[101 0ms] inbound/mixed[mixed-in]: inbound connection from 127.0.0.1:51234",
+    ),
+    MihomoLog(
+      t0 + 2L,
+      "[101 0ms] inbound/mixed[mixed-in]: inbound connection to www.baidu.com:443",
+    ),
+    MihomoLog(
+      t0 + 3L,
+      "[101 1ms] outbound/direct[我的直连]: outbound connection to www.baidu.com:443",
+    ),
+    snapshot(
+      sec,
+      (
+        #|{"connections":[{"id":"5d3c1f1e","metadata":{"network":"tcp",
+        #| "type":"mixed/mixed-in","sourceIP":"127.0.0.1","sourcePort":"51234",
+        #| "destinationPort":"443","host":"www.baidu.com","dnsMode":"normal",
+        #| "processPath":"C:\\Windows\\System32\\curl.exe"},
+        #| "start":"2026-11-13T01:18:04.8293434+08:00",
+        #| "chains":["我的直连","bypass"],"rule":"rule_set=geosite-cn => route(我的直连)","rulePayload":""}]}
+      ),
+    ),
+    // Short connection: between snapshots, logs only.
+    net(2L * sec, 10, curl_pid, "127.0.0.1", 51235, "127.0.0.1", 7890, 500),
+    MihomoLog(
+      t0 + 2L * sec,
+      "[102 0ms] inbound/mixed[mixed-in]: inbound connection from 127.0.0.1:51235",
+    ),
+    MihomoLog(
+      t0 + 2L * sec,
+      "[102 0ms] inbound/mixed[mixed-in]: inbound connection to speed.cloudflare.com:443",
+    ),
+    MihomoLog(
+      t0 + 2L * sec + 1L,
+      "[102 2ms] outbound/vless[hk-01]: outbound connection to speed.cloudflare.com:443",
+    ),
+  ])
+  let fs = e.flows()
+  inspect(
+    fs.map(f => describe(f) + " match=\{f.match_kind}").join("\n"),
+    content=(
+      #|curl.exe tcp 127.0.0.1:7890 entry=proxy-port exit=core-direct domain=www.baidu.com up=900 down=0 match=snapshot
+      #|curl.exe tcp 127.0.0.1:7890 entry=proxy-port exit=node:hk-01 domain=speed.cloudflare.com up=500 down=0 match=log
+    ),
+  )
+  inspect(fs[0].rule, content="rule_set=geosite-cn => route(我的直连)")
+}

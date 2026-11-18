@@ -32,6 +32,10 @@ FAKE_IP = ipaddress.ip_network("198.18.0.0/15")
 
 IPV4_RE = re.compile(r"(?<![\w.:])(\d{1,3}(?:\.\d{1,3}){3})(?![\w.])")
 IPV6_RE = re.compile(r"(?<![\w:.])((?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F.]{0,15})(?![\w:])")
+# "[id duration] kind/type[tag]: message" (sing-box).
+SINGBOX_RE = re.compile(
+    r"^\[(?P<id>\d+) (?P<dur>[^\]]*)\] (?P<kind>inbound|outbound)/(?P<type>[^\[]+)"
+    r"\[(?P<tag>.*?)\]: (?P<msg>.*)$")
 USER_RE = re.compile(r"(?i)(C:\\\\?Users\\\\?)[^\\\"/]+")
 
 
@@ -187,6 +191,28 @@ def main(argv):
 
     names_map = NameMap()
 
+    # Local ports of the kept application sockets. sing-box reports no
+    # process unless find_process is on, so its connections and log lines
+    # are claimed by source port instead.
+    app_ports = {r["sp"] for r in records
+                 if r["k"] == "net" and r["pid"] in keep and r["pid"] not in core_pids}
+
+    # sing-box logs one connection over several "[id dur] kind/type[tag]: msg"
+    # lines. Keep the ids whose inbound source port is an application port;
+    # direct/block outbound tags are kept as they are (they name no node).
+    singbox_ids = set()
+    for r in records:
+        if r["k"] != "mlog":
+            continue
+        m = SINGBOX_RE.match(r["line"])
+        if not m:
+            continue
+        src = re.search(r"connection from \S*:(\d+)$", m["msg"])
+        if m["kind"] == "inbound" and src and int(src.group(1)) in app_ports:
+            singbox_ids.add(m["id"])
+        if m["kind"] == "outbound" and m["type"] in ("direct", "block"):
+            KEEP_OUTBOUNDS.add(m["tag"])
+
     def redact_domain(s):
         for d in domains:
             s = re.sub(r"(?i)\b([\w-]+\.)*" + re.escape(d) + r"\b",
@@ -230,7 +256,12 @@ def main(argv):
             kept = []
             for c in conns:
                 md = c.get("metadata", {})
-                if (md.get("process") or "").lower() not in names:
+                proc = (md.get("process") or "").lower() or base_name(
+                    re.sub(r" \(.*\)$", "", md.get("processPath") or ""))
+                if proc:
+                    if proc not in names:
+                        continue
+                elif int(md.get("sourcePort") or 0) not in app_ports:
                     continue
                 for f in ("sourceIP", "destinationIP", "inboundIP"):
                     if md.get(f):
@@ -249,6 +280,14 @@ def main(argv):
                 drop(k)
                 continue
             r["body"] = {"downloadTotal": 0, "uploadTotal": 0, "connections": kept}
+        elif k == "mlog" and SINGBOX_RE.match(r["line"]):
+            m = SINGBOX_RE.match(r["line"])
+            if m["id"] not in singbox_ids:
+                drop(k)
+                continue
+            tag = names_map.node(m["tag"]) if m["kind"] == "outbound" else m["tag"]
+            r["line"] = "[%s %s] %s/%s[%s]: %s" % (
+                m["id"], m["dur"], m["kind"], m["type"], tag, scrub(m["msg"]))
         elif k == "mlog":
             m = re.search(r"\(([^),]+)", r["line"])
             if not m or m.group(1).lower() not in names:

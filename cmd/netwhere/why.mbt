@@ -45,23 +45,16 @@ async fn git_proxy() -> String {
 }
 
 ///|
-/// The TUN adapters of the core, per its /configs (same rule as the
-/// collector: device name or an address inside a configured TUN prefix).
+/// The TUN adapters of the core (same rule as the collector, see
+/// @route.find_tun).
 async fn tun_adapters(
   controller : @client.Controller,
 ) -> Array[@route.Interface] {
   let config = @async.with_timeout_opt(2000, () => controller.configs()) catch {
     _ => None
   }
-  guard config is Some(c) && c.tun_enabled else { return [] }
   let ifs = @route.interfaces() catch { _ => [] }
-  ifs.filter(i => {
-    let by_name = c.tun_device != "" && i.name == c.tun_device
-    let by_prefix = i.prefixes
-      .iter()
-      .any(p => c.tun_prefixes.iter().any(t => t.contains(p.addr)))
-    i.up && (by_name || by_prefix)
-  })
+  @route.find_tun(config, ifs, @route.internet_route_if())
 }
 
 ///|

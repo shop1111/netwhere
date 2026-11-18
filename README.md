@@ -3,7 +3,7 @@
 **Windows 本机流量走向工具**：记录每个程序的流量从哪里出去、去了哪里、用了多少。
 
 - 数据来自系统的 ETW 事件（网络、DNS、进程三类），按程序记账，短连接也不会漏。
-- 本机运行 Mihomo 内核时，再关联内核的连接信息，补上节点、域名和命中的规则。
+- 本机运行 Mihomo 或 sing-box 内核时，再通过它的 Clash API 关联连接信息，补上节点、域名和命中的规则。
 - 连接没走代理时，给出候选原因、所依据的事实和确定程度；依据不够时直接写"未判定"。
 - 每个结论都标明可信程度：出口是怎么关联上的、哪段时间没采到、套餐估算的上下限（见[可信边界](#可信边界)）。
 - 只观测：不拦截、不修改流量，不抓包，不保存通信内容。
@@ -82,13 +82,18 @@ netwhere 能看到"绕过了"，看不到程序内部为什么这样决定。所
 | 层 | 取值 | 判断依据 |
 |---|---|---|
 | 入口（entry） | `proxy-port` 经代理端口进入内核 / `tun` 经 TUN 进入内核 / `bypass` 本机有内核但直接出网 / `direct` 本机没有内核时的直接出网 / `lan` 局域网 | 回环端口的监听者是否是代理内核（`GetExtendedTcpTable`）；连接的本地地址是否在 TUN 网段；目的地址走哪块网卡（`GetBestRoute2`） |
-| 出口（exit） | 某个节点 / 内核直连 `DIRECT` / 拒绝 `REJECT` / 未知 `?` / 歧义 `~` | 用源端口、进程名和时间窗口关联 Mihomo 的连接快照；快照没赶上的短连接，用 `/logs` 兜底。每条连接记下关联方式：`snapshot`、`log`、`ambiguous`、`none` |
+| 出口（exit） | 某个节点 / 内核直连 `DIRECT` / 拒绝 `REJECT` / 未知 `?` / 歧义 `~` | 用源端口、进程名和时间窗口关联内核 Clash API（Mihomo、sing-box）的连接快照；快照没赶上的短连接，用 `/logs` 兜底。每条连接记下关联方式：`snapshot`、`log`、`ambiguous`、`none` |
 
 具体规则：
 
 - **只记应用一侧的 socket。** 代理内核在回环和 TUN 网段上的流量是应用流量的镜像，不计；内核到节点的流量单独汇总，只用于对账。实测在 20 MB 下载中，与 Mihomo 的计数相差约 1 KB。
 - **字节数包含 TLS 和 HTTP 开销。** 进程归属用 ETW 事件里的 `PID` 字段，而不是事件头里的进程号。
-- **域名来源的优先级：** Mihomo 的 host > 本进程的 DNS 应答 > 全机的 DNS 应答 > 只显示 IP。
+- **域名来源的优先级：** 内核报告的 host > 本进程的 DNS 应答 > 全机的 DNS 应答 > 只显示 IP。
+- **sing-box 与 Mihomo 的差异：** sing-box 的 Clash API 字段与 Mihomo 基本一致（源端口、`chains` 顺序、开始时间），区别在于：
+  - 只给 `processPath`，且默认不查进程（`find_process` 关闭时为空），关联时就只靠源端口和时间窗口；
+  - 一个连接的日志分成"入站来源 / 入站目的 / 出站"三行，按连接 id 拼起来；日志里写明出站类型，自定义名字的直连出站（例如 `我的直连`）由此识别为 `DIRECT`；从没在日志里出现过的标签，只有 `direct`、`block` 这两个默认名会被当作直连 / 拒绝，其余都算节点；
+  - 规则只在快照里有（`rule_set=... => route(...)` 或 `final`），只靠日志关联上的连接没有规则；
+  - `/configs` 不报告端口和 TUN：内核进程按名字识别，TUN 网卡取"通往外网的路由所经过的虚拟网卡（Wintun）"。若另有一个 Wintun VPN 承载默认路由，会被误当作内核的 TUN，此时它的连接标 `!`。
 - **应用分类：** 用户规则优先；同一来源内，"进程 + 域名" > 只看进程 > 只看域名。内置规则导入自 [v2fly/domain-list-community](https://github.com/v2fly/domain-list-community)（MIT）。
 - **套餐消耗估算：** 只算出口为节点的流量。每个节点的流量乘以倍率，倍率可以在 `config.json` 里手工配置，或从节点名中的 `2x`、`x3`、`0.5x`、`2倍` 之类标记识别，都没有时按 1 倍计算。有出口未知或歧义的流量时给出区间：下限只算已知节点，上限把这部分按出现过的最大倍率全算上。
 - **入口判定的顺序：** 本地地址在 TUN 网段内就是 `tun`；路由指向 TUN 但本地地址不在 TUN 网段，说明程序把 socket 绑到了别的网卡，记为 `bypass`；其余再看路由。
@@ -115,7 +120,7 @@ netwhere 能看到"绕过了"，看不到程序内部为什么这样决定。所
 ```
 netwhered.exe（管理员权限，登录时由计划任务启动，无窗口）
   ETW → 记账引擎 → %ProgramData%\netwhere\ledger.db（每 10 秒写一次）
-  Mihomo /connections + /logs（WebSocket，断线自动重连）
+  Clash API（Mihomo / sing-box）/connections + /logs（WebSocket，断线自动重连）
         ▲ 读 ledger.db          │ 写 requests\*.json、config.json
 netwhere.exe（普通权限）
 ```
@@ -213,13 +218,16 @@ moon run cmd/rules-import -- $env:TEMP\dlc\data --apps rules\apps.txt --out rule
   | tun | `curl -6 --noproxy *` | `tun-no-ipv6` (certain) |
   | tun | `curl --interface <物理网卡地址>` | `bound-off-tun` (certain)，目的地址是 fake-ip，命令超时 |
 
+**sing-box 出口支持**（2026-11-18）：Clash API 快照解码（`processPath` 取进程名）、多行日志按连接 id 拼接、从日志学习出站标签类型、`/configs` 不报告 TUN 时自动识别 TUN 网卡，均有单元测试。在官方 sing-box 1.14.4（mixed 入站 + http 出站 + 自定义名字的直连出站）上录了 `singbox` 场景：节点出口、直连标签、短连接日志兜底三个场景全部符合预期，录制在 `testdata/scenarios/singbox.*`。
+
 **还没做：** 24 小时连续运行。
 
 **计划中：** 托盘和图形界面。
 
 ## 已知限制
 
-- 只支持 Windows。出口信息只支持 Mihomo；其他内核只能提供入口信息。
+- 只支持 Windows。出口信息支持 Mihomo 和 sing-box（Clash API）；Xray、V2Ray 等没有按连接查询接口的内核只能提供入口信息。
+- sing-box 的 TUN 模式还没有在实机上录制（自动识别 TUN 网卡的逻辑有单元测试）；降级 `trace` 按进程名过滤内核记录，sing-box 不查进程时看不到。
 - 浏览器开启安全 DNS（DoH）时，直连流量只能显示 IP，无法显示域名。
 - 降级模式看不到直连流量。普通权限下开启 DNS-Client 会话，要求账号属于 Performance Log Users 组。
 - 绕过原因只是候选：netwhere 看不到命令行参数和程序自己的配置。`trace` 的路由依据是命令结束时查到的路由，不是连接建立那一刻的。

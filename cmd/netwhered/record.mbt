@@ -138,27 +138,12 @@ async fn build_header(
       add_core(l.pid)
     }
   }
-  // TUN adapters: by configured device name or by configured prefix.
-  let tun : Array[@ledger.TunInfo] = []
-  match config {
-    Some(c) if c.tun_enabled => {
-      let ifs = @route.interfaces() catch { _ => [] }
-      for i in ifs {
-        let by_name = c.tun_device != "" && i.name == c.tun_device
-        let by_prefix = i.prefixes
-          .iter()
-          .any(p => c.tun_prefixes.iter().any(t => t.contains(p.addr)))
-        if i.up && (by_name || by_prefix) {
-          tun.push({
-            if_index: i.if_index,
-            if_name: i.name,
-            prefixes: i.prefixes,
-          })
-        }
-      }
-    }
-    _ => ()
-  }
+  // TUN adapters (see @route.find_tun).
+  let tun : Array[@ledger.TunInfo] = find_tun(config).map(i => {
+    if_index: i.if_index,
+    if_name: i.name,
+    prefixes: i.prefixes,
+  })
   let header : @ledger.Header = {
     version: @ledger.record_version,
     t0,
@@ -252,7 +237,7 @@ async fn record(opts : RecordOptions) -> Int32 {
             // Only routed-connection lines are kept; other log lines may carry
             // unrelated information.
             Ok(m) =>
-              if @mihomo.parse_conn_log(m.payload) is Some(_) {
+              if @mihomo.is_conn_log_line(m.payload) {
                 rec.emit(MihomoLog(@sys.now(), m.payload))
               }
             Err(_) => ()

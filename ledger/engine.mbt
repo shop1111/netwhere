@@ -12,7 +12,8 @@
 //     Tun; outside while the route points at TUN -> Direct, the socket was
 //     bound off TUN), then the route: TUN adapter -> Tun; private/link-local
 //     -> Lan; else Direct (reported as "bypassed the core" with a core).
-//  5. Exit: join Mihomo by (source port, process, time window); snapshots
+//  5. Exit: join the core's Clash API records (Mihomo, sing-box) by
+//     (source port, process, time window); snapshots
 //     first, routed-connection log lines second; else Unknown, and a long
 //     TUN flow without any match is flagged inconsistent. How the join was
 //     made is kept (MatchKind): candidates with different outbounds make it
@@ -195,6 +196,10 @@ pub struct Engine {
   priv dns_any : Map[@netaddr.IpAddr, String]
   priv core_by_port : Map[Int32, Array[CoreInfo]]
   priv seen_core_ids : Map[String, CoreInfo]
+  /// Outbound tag -> exit, learned from logs that name the outbound's
+  /// protocol (sing-box: "outbound/direct[my-direct]"). Snapshots carry only
+  /// the tag, which is a free-form name there.
+  priv outbound_kinds : Map[String, Exit]
   /// Core-owned loopback ports that are APIs, not proxy inbounds (the
   /// external controller): traffic to them is not counted.
   priv api_ports : Array[Int32]
@@ -227,6 +232,7 @@ pub fn Engine::new(
     dns_any: Map([]),
     core_by_port: Map([]),
     seen_core_ids: Map([]),
+    outbound_kinds: Map([]),
     api_ports,
     core_out_up: 0L,
     core_out_down: 0L,
@@ -483,6 +489,12 @@ pub fn Engine::on_core_log(
   t : Ticks,
   l : @mihomo.ConnLog,
 ) -> Unit {
+  match l.outbound_type {
+    "" => ()
+    "direct" => self.outbound_kinds[l.outbound] = CoreDirect
+    "block" => self.outbound_kinds[l.outbound] = CoreReject
+    _ => self.outbound_kinds[l.outbound] = Node(l.outbound)
+  }
   self.add_core_info(l.source_port, {
     t,
     network: l.network,
@@ -578,10 +590,17 @@ fn Engine::core_match(self : Engine, f : Flow) -> (CoreInfo?, MatchKind, Int64) 
 }
 
 ///|
-fn exit_of(outbound : String) -> Exit {
+/// The exit an outbound name stands for: what a log said about the tag, or
+/// Mihomo's fixed names (sing-box's default tags "direct" and "block" read
+/// the same way); any other name is a node.
+fn Engine::exit_of(self : Engine, outbound : String) -> Exit {
+  match self.outbound_kinds.get(outbound) {
+    Some(x) => return x
+    None => ()
+  }
   match outbound.to_upper() {
     "DIRECT" => CoreDirect
-    "REJECT" | "REJECT-DROP" => CoreReject
+    "REJECT" | "REJECT-DROP" | "BLOCK" => CoreReject
     _ => Node(outbound)
   }
 }
@@ -626,7 +645,7 @@ fn Engine::summarize(self : Engine, f : Flow) -> FlowSummary {
   }
   let exit = match (f.entry, core) {
     (Direct, _) | (Lan, _) => NotProxied
-    (_, Some(c)) => exit_of(c.outbound)
+    (_, Some(c)) => self.exit_of(c.outbound)
     (_, None) => Unknown
   }
   let (domain, domain_source) = match (f.entry, core) {

@@ -1,9 +1,11 @@
 import {
+  "shop1111/netwhere/mihomo",
   "shop1111/netwhere/netaddr",
   "moonbitlang/core/encoding/utf8",
 }
 
 import {
+  "shop1111/netwhere/mihomo",
   "shop1111/netwhere/netaddr",
 } for "test"
 

@@ -245,9 +245,10 @@ async fn trace_degraded(
   let started = @sys.now()
   let code = @async.with_task_group(group => {
     group.spawn_bg(no_wait=true, () => {
+      let parser = @mihomo.ConnLogParser::new()
       controller.watch_logs(text => {
         if (Ok(@mihomo.parse_log_message(text)) catch { e => Err(e) }) is Ok(m) &&
-          @mihomo.parse_conn_log(m.payload) is Some(l) {
+          parser.feed(m.payload) is Some(l) {
           logs.push(l)
         }
       })

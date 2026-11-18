@@ -12,6 +12,8 @@ may have a different environment (for example no HTTPS_PROXY).
 
 Before -Mode system-proxy: FlClash "system proxy" on, TUN off.
 Before -Mode tun:          FlClash TUN on (fake-ip), system proxy off.
+Before -Mode singbox:      sing-box running with a mixed inbound and the
+                           Clash API; pass -ProxyPort and -Controller.
 
 Output (raw, NOT for committing): testdata\raw\<mode>.ndjson, <mode>.log,
 <mode>.manifest.json. Then sanitize:
@@ -19,7 +21,7 @@ Output (raw, NOT for committing): testdata\raw\<mode>.ndjson, <mode>.log,
   python -I scripts\sanitize_recording.py testdata\raw\<mode>.manifest.json testdata\scenarios
 #>
 param(
-  [Parameter(Mandatory = $true)][ValidateSet("system-proxy", "tun")][string]$Mode,
+  [Parameter(Mandatory = $true)][ValidateSet("system-proxy", "tun", "singbox")][string]$Mode,
   [string]$Controller = "127.0.0.1:9090",
   [int]$ProxyPort = 7890,
   [int]$Bytes = 5000000,
@@ -102,59 +104,77 @@ function Invoke-Scenario($name, $file, $arguments, $expect, [hashtable]$setEnv =
   Start-Sleep -Seconds 2
 }
 
-# Entry expected for a direct (non-proxy-port) connection over IPv4.
-$v4Direct = if ($Mode -eq "tun") { "tun" } else { "bypass" }
-$v4DirectExit = if ($Mode -eq "tun") { "core" } else { "-" }
+if ($Mode -eq "singbox") {
+  # sing-box with a mixed inbound on -ProxyPort and the Clash API on
+  # -Controller; route: baidu.com -> a direct outbound with a custom tag,
+  # everything else -> an http outbound (another proxy). Exits come from
+  # sing-box snapshots, and from its multi-line logs for short connections.
+  Invoke-Scenario "singbox-node" $curl "-s -o NUL -x http://127.0.0.1:$ProxyPort `"$url`"" @(
+    [ordered]@{ process = "curl.exe"; entry = "proxy-port"; exit = "node"; down_min = $Bytes; only = $true }
+  )
+  Invoke-Scenario "singbox-direct-tag" $curl "-s -o NUL -x http://127.0.0.1:$ProxyPort https://www.baidu.com" @(
+    [ordered]@{ process = "curl.exe"; entry = "proxy-port"; exit = "DIRECT (core)"; down_min = 1000; only = $true }
+  )
+  # Several short connections in one command (different hosts, no reuse):
+  # most end between two snapshots, so the logs carry their exits.
+  Invoke-Scenario "singbox-short" $curl "-s -o NUL -o NUL -o NUL -x http://127.0.0.1:$ProxyPort https://www.baidu.com/robots.txt `"$small`" https://github.com/robots.txt" @(
+    [ordered]@{ process = "curl.exe"; entry = "proxy-port"; exit = "core"; down_min = 1000; only = $true }
+  )
+} else {
+  # Entry expected for a direct (non-proxy-port) connection over IPv4.
+  $v4Direct = if ($Mode -eq "tun") { "tun" } else { "bypass" }
+  $v4DirectExit = if ($Mode -eq "tun") { "core" } else { "-" }
 
-Invoke-Scenario "curl-proxy-port" $curl "-s -o NUL -x http://127.0.0.1:$ProxyPort `"$url`"" @(
-  [ordered]@{ process = "curl.exe"; entry = "proxy-port"; exit = "core"; down_min = $Bytes; only = $true }
-)
-Invoke-Scenario "curl-noproxy-v4" $curl "-4 -s -o NUL --noproxy * `"$url`"" @(
-  [ordered]@{ process = "curl.exe"; entry = $v4Direct; exit = $v4DirectExit; down_min = $Bytes; only = $true }
-)
-Invoke-Scenario "curl-env-proxy" $curl "-4 -s -o NUL `"$url`"" @(
-  [ordered]@{ process = "curl.exe"; entry = "proxy-port"; exit = "core"; down_min = $Bytes; only = $true }
-) @{ HTTPS_PROXY = "http://127.0.0.1:$ProxyPort"; HTTP_PROXY = $null; ALL_PROXY = $null }
-# IPv6 never went through TUN on the probe machine; route facts decide.
-Invoke-Scenario "curl-noproxy-v6" $curl "-6 -s -o NUL --noproxy * `"$url`"" @(
-  [ordered]@{ process = "curl.exe"; entry = "route"; exit = "any"; down_min = $Bytes; only = $true }
-)
-# Without a proxy setting the address family is the client's choice (IPv6
-# bypasses TUN on some machines), so only "not through the proxy port" is
-# asserted and the recorded route facts decide the rest.
-$gitEntry = if ($envProxy -or $gitProxy) { "proxy-port" } else { "route" }
-$gitExit = if ($envProxy -or $gitProxy) { "core" } else { "any" }
-Invoke-Scenario "git-ls-remote" "git" "ls-remote https://github.com/git/git HEAD" @(
-  [ordered]@{ process = "git-remote-https.exe"; entry = $gitEntry; exit = $gitExit; down_min = 1000; only = $false }
-)
-$iwrEntry = if ($systemProxy) { "proxy-port" } else { "route" }
-$iwrExit = if ($systemProxy) { "core" } else { "any" }
-Invoke-Scenario "powershell-iwr" "powershell" "-NoProfile -Command `"Invoke-WebRequest -UseBasicParsing '$small' | Out-Null`"" @(
-  [ordered]@{ process = "powershell.exe"; entry = $iwrEntry; exit = $iwrExit; down_min = 200000; only = $false }
-)
-# UDP: a system proxy cannot carry it (diagnosis: udp-not-proxied). Under
-# TUN the query is routed into TUN and answered by the core's DNS hijack.
-$udpEntry = if ($Mode -eq "tun") { "route" } else { "bypass" }
-$udpExit = if ($Mode -eq "tun") { "any" } else { "-" }
-Invoke-Scenario "nslookup-udp" "nslookup" "example.com 1.1.1.1" @(
-  [ordered]@{ process = "nslookup.exe"; entry = $udpEntry; exit = $udpExit; down_min = 20; only = $false }
-)
-if ($Mode -eq "tun") {
-  # A socket bound to the physical adapter skips the TUN route although the
-  # route table points at TUN (diagnosis: bound-off-tun). The physical
-  # address: IPv4 of the adapters with a default route, outside the usual
-  # TUN ranges (198.18.0.0/15, 172.19.0.0/16).
-  $physical = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue |
-    Sort-Object RouteMetric |
-    ForEach-Object { Get-NetIPAddress -AddressFamily IPv4 -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue } |
-    Where-Object { $_.IPAddress -notmatch '^(198\.1[89]\.|172\.19\.|169\.254\.)' } |
-    Select-Object -First 1 -ExpandProperty IPAddress
-  if ($physical) {
-    Invoke-Scenario "curl-bound-physical" $curl "-4 -s -o NUL --noproxy * --interface $physical `"$url`"" @(
-      [ordered]@{ process = "curl.exe"; entry = "bypass"; exit = "-"; down_min = $Bytes; only = $true }
-    )
-  } else {
-    Write-Host "curl-bound-physical: no physical IPv4 address found, skipped"
+  Invoke-Scenario "curl-proxy-port" $curl "-s -o NUL -x http://127.0.0.1:$ProxyPort `"$url`"" @(
+    [ordered]@{ process = "curl.exe"; entry = "proxy-port"; exit = "core"; down_min = $Bytes; only = $true }
+  )
+  Invoke-Scenario "curl-noproxy-v4" $curl "-4 -s -o NUL --noproxy * `"$url`"" @(
+    [ordered]@{ process = "curl.exe"; entry = $v4Direct; exit = $v4DirectExit; down_min = $Bytes; only = $true }
+  )
+  Invoke-Scenario "curl-env-proxy" $curl "-4 -s -o NUL `"$url`"" @(
+    [ordered]@{ process = "curl.exe"; entry = "proxy-port"; exit = "core"; down_min = $Bytes; only = $true }
+  ) @{ HTTPS_PROXY = "http://127.0.0.1:$ProxyPort"; HTTP_PROXY = $null; ALL_PROXY = $null }
+  # IPv6 never went through TUN on the probe machine; route facts decide.
+  Invoke-Scenario "curl-noproxy-v6" $curl "-6 -s -o NUL --noproxy * `"$url`"" @(
+    [ordered]@{ process = "curl.exe"; entry = "route"; exit = "any"; down_min = $Bytes; only = $true }
+  )
+  # Without a proxy setting the address family is the client's choice (IPv6
+  # bypasses TUN on some machines), so only "not through the proxy port" is
+  # asserted and the recorded route facts decide the rest.
+  $gitEntry = if ($envProxy -or $gitProxy) { "proxy-port" } else { "route" }
+  $gitExit = if ($envProxy -or $gitProxy) { "core" } else { "any" }
+  Invoke-Scenario "git-ls-remote" "git" "ls-remote https://github.com/git/git HEAD" @(
+    [ordered]@{ process = "git-remote-https.exe"; entry = $gitEntry; exit = $gitExit; down_min = 1000; only = $false }
+  )
+  $iwrEntry = if ($systemProxy) { "proxy-port" } else { "route" }
+  $iwrExit = if ($systemProxy) { "core" } else { "any" }
+  Invoke-Scenario "powershell-iwr" "powershell" "-NoProfile -Command `"Invoke-WebRequest -UseBasicParsing '$small' | Out-Null`"" @(
+    [ordered]@{ process = "powershell.exe"; entry = $iwrEntry; exit = $iwrExit; down_min = 200000; only = $false }
+  )
+  # UDP: a system proxy cannot carry it (diagnosis: udp-not-proxied). Under
+  # TUN the query is routed into TUN and answered by the core's DNS hijack.
+  $udpEntry = if ($Mode -eq "tun") { "route" } else { "bypass" }
+  $udpExit = if ($Mode -eq "tun") { "any" } else { "-" }
+  Invoke-Scenario "nslookup-udp" "nslookup" "example.com 1.1.1.1" @(
+    [ordered]@{ process = "nslookup.exe"; entry = $udpEntry; exit = $udpExit; down_min = 20; only = $false }
+  )
+  if ($Mode -eq "tun") {
+    # A socket bound to the physical adapter skips the TUN route although the
+    # route table points at TUN (diagnosis: bound-off-tun). The physical
+    # address: IPv4 of the adapters with a default route, outside the usual
+    # TUN ranges (198.18.0.0/15, 172.19.0.0/16).
+    $physical = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue |
+      Sort-Object RouteMetric |
+      ForEach-Object { Get-NetIPAddress -AddressFamily IPv4 -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue } |
+      Where-Object { $_.IPAddress -notmatch '^(198\.1[89]\.|172\.19\.|169\.254\.)' } |
+      Select-Object -First 1 -ExpandProperty IPAddress
+    if ($physical) {
+      Invoke-Scenario "curl-bound-physical" $curl "-4 -s -o NUL --noproxy * --interface $physical `"$url`"" @(
+        [ordered]@{ process = "curl.exe"; entry = "bypass"; exit = "-"; down_min = $Bytes; only = $true }
+      )
+    } else {
+      Write-Host "curl-bound-physical: no physical IPv4 address found, skipped"
+    }
   }
 }
 

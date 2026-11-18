@@ -1,18 +1,10 @@
 // Helpers shared by `record` and `run`.
 
 ///|
-/// TUN adapters per the core's /configs: matched by device name or by an
-/// address inside a configured TUN prefix.
+/// TUN adapters of the core (see @route.find_tun).
 fn find_tun(config : @mihomo.CoreConfig?) -> Array[@route.Interface] {
-  guard config is Some(c) && c.tun_enabled else { return [] }
   let ifs = @route.interfaces() catch { _ => [] }
-  ifs.filter(i => {
-    let by_name = c.tun_device != "" && i.name == c.tun_device
-    let by_prefix = i.prefixes
-      .iter()
-      .any(p => c.tun_prefixes.iter().any(t => t.contains(p.addr)))
-    i.up && (by_name || by_prefix)
-  })
+  @route.find_tun(config, ifs, @route.internet_route_if())
 }
 
 ///|

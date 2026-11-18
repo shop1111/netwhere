@@ -121,6 +121,21 @@ fn int64_field(m : Map[String, Json], key : String) -> Int64 {
 }
 
 ///|
+/// "C:\Windows\System32\curl.exe (user)" -> "curl.exe"; "" stays "".
+pub fn process_name_of_path(path : String) -> String {
+  let p = match path.find(" (") {
+    Some(i) if path.has_suffix(")") => path[:i]
+    _ => path[:]
+  }
+  let start = match (p.rev_find("\\"), p.rev_find("/")) {
+    (Some(a), Some(b)) => (if a > b { a } else { b }) + 1
+    (Some(a), None) | (None, Some(a)) => a + 1
+    (None, None) => 0
+  }
+  p[start:].to_owned()
+}
+
+///|
 fn decode_conn(j : Json) -> Conn raise DecodeError {
   guard j is Object(c) else { raise DecodeError("connection is not an object") }
   guard field(c, "metadata") is Object(md) else {
@@ -155,7 +170,11 @@ fn decode_conn(j : Json) -> Conn raise DecodeError {
     }),
     dest_port: int_field(md, "destinationPort"),
     host: host.to_lower(),
-    process: str_or_empty(md, "process"),
+    process: match str_or_empty(md, "process") {
+      // sing-box reports only processPath, possibly with " (user)" after it.
+      "" => process_name_of_path(str_or_empty(md, "processPath"))
+      p => p
+    },
     process_path: str_or_empty(md, "processPath"),
     upload: int64_field(c, "upload"),
     download: int64_field(c, "download"),
@@ -199,6 +218,9 @@ pub fn parse_snapshot(text : StringView) -> Snapshot raise DecodeError {
 pub(all) struct CoreConfig {
   /// Non-zero values of port, socks-port, mixed-port, redir-port, tproxy-port.
   ports : Array[Int32]
+  /// The core described its TUN (Mihomo always does; sing-box's Clash API
+  /// reports "tun": null, so its adapter has to be found another way).
+  tun_known : Bool
   tun_enabled : Bool
   tun_device : String
   tun_prefixes : Array[@netaddr.Cidr]
@@ -214,6 +236,7 @@ pub fn decode_configs(j : Json) -> CoreConfig raise DecodeError {
       ports.push(p)
     }
   }
+  let tun_known = m.get("tun") is Some(Object(_))
   let (tun_enabled, tun_device, tun_prefixes) = match m.get("tun") {
     Some(Object(t)) => {
       let prefixes = []
@@ -230,5 +253,5 @@ pub fn decode_configs(j : Json) -> CoreConfig raise DecodeError {
     }
     _ => (false, "", [])
   }
-  { ports, tun_enabled, tun_device, tun_prefixes, }
+  { ports, tun_known, tun_enabled, tun_device, tun_prefixes, }
 }

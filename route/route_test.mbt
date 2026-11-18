@@ -39,3 +39,57 @@ test "dos devices include the system drive" {
     msg="C: is not mapped to an NT device",
   )
 }
+
+///|
+fn iface(
+  idx : Int32,
+  name : String,
+  if_type : Int32,
+  prefix : String,
+) -> @route.Interface {
+  {
+    if_index: idx,
+    if_type,
+    up: true,
+    name,
+    description: "",
+    prefixes: [@netaddr.Cidr::parse(prefix).unwrap()],
+  }
+}
+
+///|
+test "find_tun: by the core's description, else the virtual internet adapter" {
+  let wlan = iface(2, "WLAN", 71, "192.168.1.10/24")
+  let tun = iface(47, "singbox_tun", 53, "172.19.0.1/30")
+  let ifs = [wlan, tun]
+  let mihomo : @mihomo.CoreConfig = {
+    ports: [7890],
+    tun_known: true,
+    tun_enabled: true,
+    tun_device: "",
+    tun_prefixes: [@netaddr.Cidr::parse("172.19.0.1/30").unwrap()],
+  }
+  assert_eq(@route.find_tun(Some(mihomo), ifs, Some(2)).map(i => i.if_index), [
+    47,
+  ])
+  // Mihomo says TUN is off: no guessing.
+  assert_eq(
+    @route.find_tun(Some({ ..mihomo, tun_enabled: false, }), ifs, Some(47)),
+    [],
+  )
+  // sing-box: no TUN description; the internet route decides.
+  let singbox = {
+    ..mihomo,
+    tun_known: false,
+    tun_enabled: false,
+    tun_prefixes: [],
+  }
+  assert_eq(
+    @route.find_tun(Some(singbox), ifs, Some(47)).map(i => i.if_index),
+    [47],
+  )
+  // The internet goes through the physical adapter: no TUN.
+  assert_eq(@route.find_tun(Some(singbox), ifs, Some(2)), [])
+  // No controller answer at all: nothing.
+  assert_eq(@route.find_tun(None, ifs, Some(47)), [])
+}
