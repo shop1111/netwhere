@@ -5,7 +5,7 @@
 - 项目名称：netwhere：Windows 按程序记录流量走向的工具
 - 参赛者：郑培翔　联系方式：wx:zhengpx10086
 - GitHub：https://github.com/shop1111/netwhere
-- Mooncakes：`shop1111/netwhere`（https://mooncakes.io/docs/shop1111/netwhere）
+- Mooncakes：`shop1111/netwhere@0.2.0`（https://mooncakes.io/docs/shop1111/netwhere）
 - 项目性质：原创。
 
 **项目简介**
@@ -125,7 +125,7 @@ netwhere 看得到"绕过了"，看不到程序内部为什么这么决定，所
 
 采集进程和命令行已完成，Windows CI 跑 fmt、check、test，共 106 个测试。在 FlClash（Mihomo）上录了三份：系统代理模式两份（终端有无代理变量各一份），TUN 模式一份，共 21 个场景，全部符合预期（其中绑定物理网卡那个命令按预期超时，只核对诊断）。录制脱敏后放进 `testdata/scenarios/` 由 `moon test` 回放，诊断结果也有快照断言。三次录制 ETW 丢事件均为 0，定长解码与 TDH 逐字段对照无差异。已安装的采集进程连续运行 2 小时：私有内存 6.6–8.6 MB，CPU 平均 0.52% 单核，31 万个事件零丢失。
 
-本轮（0.2.0）根据初审意见新增：绕过原因诊断、出口关联方式与歧义标记、绑定物理网卡的识别、按分钟的覆盖记录、套餐估算区间；账本 schema 升到 2，旧账本原地升级。0.1.0 已发布到 Mooncakes，全新的消费工程 `moon add` 后调用 `netaddr`、`rules` 通过。
+本轮（0.2.0）根据初审意见新增：绕过原因诊断、出口关联方式与歧义标记、绑定物理网卡的识别、按分钟的覆盖记录、套餐估算区间；账本 schema 升到 2，旧账本原地升级。0.2.0 已发布到 Mooncakes（2026-11-18），全新的消费工程 `moon add` 后调用 `diagnose`、`netaddr` 通过；0.1.0 发布时验证过 `netaddr`、`rules`。
 
 还没做：24 小时连续运行。第二步是托盘和 WebView2 界面（报表、明细、待归类、规则），按需启动，关闭后不常驻。
 

@@ -194,6 +194,7 @@ moon run cmd/rules-import -- $env:TEMP\dlc\data --apps rules\apps.txt --out rule
   - 共 31 万个事件，丢事件和队列丢弃都是 0。
 
 - 发布：`shop1111/netwhere@0.1.0` 已发布到 [Mooncakes](https://mooncakes.io/docs/shop1111/netwhere)，全新消费工程 `moon add` 后调用 `netaddr`、`rules` 通过（2026-11-13）。
+- 发布：`shop1111/netwhere@0.2.0` 已发布到 Mooncakes，全新消费工程 `moon add` 后调用 `diagnose`、`netaddr` 通过（2026-11-18）。
 
 **0.2.0 新增**（CI 自动测试）：
 
