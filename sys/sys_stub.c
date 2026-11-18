@@ -306,3 +306,29 @@ int32_t nw_run_wait(moonbit_string_t cmdline) {
 // Detaches from the console (closes the window of a console started by the
 // task scheduler). Output after this is discarded.
 void nw_detach_console(void) { FreeConsole(); }
+
+// A value under HKEY_CURRENT_USER\<subkey> as text: REG_SZ / REG_EXPAND_SZ
+// as is, REG_DWORD in decimal; "" when missing or of another type.
+moonbit_string_t nw_reg_user_value(moonbit_string_t subkey, moonbit_string_t name) {
+  WCHAR *k = mbt_to_wide(subkey);
+  WCHAR *n = mbt_to_wide(name);
+  moonbit_string_t out = moonbit_make_string(0, 0);
+  if (k && n) {
+    BYTE buf[4096];
+    DWORD type = 0, size = sizeof buf - 2;
+    if (RegGetValueW(HKEY_CURRENT_USER, k, n, RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ | RRF_RT_REG_DWORD | RRF_NOEXPAND,
+                     &type, buf, &size) == ERROR_SUCCESS) {
+      if (type == REG_DWORD && size >= 4) {
+        WCHAR num[16];
+        int len = wsprintfW(num, L"%lu", *(DWORD *)buf);
+        out = wide_to_mbt(num, len);
+      } else if (type == REG_SZ || type == REG_EXPAND_SZ) {
+        WCHAR *s = (WCHAR *)buf;
+        out = wide_to_mbt(s, (int)wcsnlen(s, size / 2));
+      }
+    }
+  }
+  free(k);
+  free(n);
+  return out;
+}

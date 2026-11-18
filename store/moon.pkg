@@ -9,6 +9,8 @@ import {
   "shop1111/netwhere/ledger",
   "shop1111/netwhere/sys",
   "shop1111/netwhere/netaddr",
+  "shop1111/netwhere/report",
+  "moonbit-community/sqlite3",
   "moonbitlang/async",
   "moonbitlang/async/fs",
 } for "test"

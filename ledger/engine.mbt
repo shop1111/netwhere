@@ -8,11 +8,15 @@
 //     mirrors apps and is dropped; core traffic elsewhere goes to a separate
 //     "core outbound" total; other loopback traffic is dropped.
 //  4. Entry: loopback peer whose listener is a core -> ProxyPort; otherwise
-//     the route decides: TUN adapter -> Tun; private/link-local -> Lan;
-//     else Direct (reported as "bypassed the core" when a core is running).
+//     the local address decides when it is telling (inside a TUN prefix ->
+//     Tun; outside while the route points at TUN -> Direct, the socket was
+//     bound off TUN), then the route: TUN adapter -> Tun; private/link-local
+//     -> Lan; else Direct (reported as "bypassed the core" with a core).
 //  5. Exit: join Mihomo by (source port, process, time window); snapshots
 //     first, routed-connection log lines second; else Unknown, and a long
-//     TUN flow without any match is flagged inconsistent.
+//     TUN flow without any match is flagged inconsistent. How the join was
+//     made is kept (MatchKind): candidates with different outbounds make it
+//     Ambiguous instead of silently taking the closest.
 //  6. Domain: Mihomo host > this process's DNS answer > any DNS answer.
 
 ///|
@@ -65,6 +69,44 @@ pub impl Show for Exit with fn output(self, logger) {
 }
 
 ///|
+/// How a flow's exit was found.
+#derive(Eq, Hash, Debug)
+pub(all) enum MatchKind {
+  /// A /connections snapshot listed the connection.
+  Snapshot
+  /// Only a routed-connection log line matched.
+  LogLine
+  /// Several records matched and they disagree on the outbound; the closest
+  /// one is shown, but the exit is not trusted.
+  Ambiguous
+  /// No core record matched (exit Unknown), or the flow never entered a
+  /// core (exit NotProxied).
+  NoMatch
+}
+
+///|
+pub impl Show for MatchKind with fn output(self, logger) {
+  logger.write_string(
+    match self {
+      Snapshot => "snapshot"
+      LogLine => "log"
+      Ambiguous => "ambiguous"
+      NoMatch => "none"
+    },
+  )
+}
+
+///|
+pub fn MatchKind::parse(s : String) -> MatchKind {
+  match s {
+    "snapshot" => Snapshot
+    "log" => LogLine
+    "ambiguous" => Ambiguous
+    _ => NoMatch
+  }
+}
+
+///|
 #derive(Eq, Hash, Debug)
 pub(all) enum DomainSource {
   FromCore
@@ -110,6 +152,9 @@ priv struct FlowKey {
 priv struct Flow {
   key : FlowKey
   entry : Entry
+  /// The route pointed at TUN but the local address is outside every TUN
+  /// prefix: the socket was bound to another adapter.
+  bound_off_tun : Bool
   first : Ticks
   mut last : Ticks
   mut up : Int64
@@ -226,16 +271,21 @@ pub fn Engine::set_api_ports(self : Engine, ports : Array[Int32]) -> Unit {
 pub fn totals_of(flows : Array[FlowSummary]) -> Totals {
   let by_entry = Map([])
   let mut unknown_exit = 0L
+  let mut ambiguous_exit = 0L
   for f in flows {
     let (u, d) = by_entry.get(f.entry).unwrap_or((0L, 0L))
     by_entry[f.entry] = (u + f.up, d + f.down)
     if f.exit == Unknown {
       unknown_exit += f.up + f.down
     }
+    if f.match_kind == Ambiguous {
+      ambiguous_exit += f.up + f.down
+    }
   }
   {
     by_entry,
     unknown_exit,
+    ambiguous_exit,
     core_outbound_up: 0L,
     core_outbound_down: 0L,
     dropped_mirror: 0L,
@@ -301,14 +351,26 @@ pub fn Engine::on_net(self : Engine, e : NetEvent) -> Unit {
   let flow = match self.flows.get(key) {
     Some(f) => f
     None => {
+      let mut bound_off_tun = false
+      // The local address is the strongest evidence of the adapter used,
+      // when it is concrete and TUN prefixes are known.
+      let local_known = self.tun_prefixes.length() > 0 &&
+        !e.sock.addr.is_unspecified()
       let entry = if e.peer.addr.is_loopback() {
         match (self.env.listener_pid)(e.peer.addr, e.peer.port) {
           Some(owner) if self.is_core(owner) &&
             !self.api_ports.contains(e.peer.port) => Some(ProxyPort)
           _ => None
         }
-      } else if (self.env.via_tun)(e.peer.addr) {
+      } else if local_known && self.in_tun_net(e.sock.addr) {
         Some(Tun)
+      } else if (self.env.via_tun)(e.peer.addr) {
+        if local_known {
+          bound_off_tun = true
+          Some(Direct)
+        } else {
+          Some(Tun)
+        }
       } else if e.peer.addr.is_private() ||
         e.peer.addr.is_link_local() ||
         e.peer.addr.is_multicast() {
@@ -324,6 +386,7 @@ pub fn Engine::on_net(self : Engine, e : NetEvent) -> Unit {
       let f : Flow = {
         key,
         entry,
+        bound_off_tun,
         first: e.t,
         last: e.t,
         up: 0L,
@@ -460,9 +523,9 @@ fn Engine::process_name(self : Engine, pid : Int32) -> String {
 }
 
 ///|
-fn Engine::core_match(self : Engine, f : Flow) -> CoreInfo? {
+fn Engine::core_match(self : Engine, f : Flow) -> (CoreInfo?, MatchKind, Int64) {
   guard self.core_by_port.get(f.key.sock.port) is Some(candidates) else {
-    return None
+    return (None, NoMatch, 0L)
   }
   let network = match f.key.proto {
     Tcp => "tcp"
@@ -471,6 +534,7 @@ fn Engine::core_match(self : Engine, f : Flow) -> CoreInfo? {
   let proc = base_name(self.process_name(f.key.pid)).to_lower()
   let mut best : CoreInfo? = None
   let mut best_score = 0L
+  let outbounds : Array[String] = []
   for c in candidates {
     if c.network != "" && c.network != network {
       continue
@@ -491,6 +555,9 @@ fn Engine::core_match(self : Engine, f : Flow) -> CoreInfo? {
     if (c.from_snapshot && !overlaps) || (!c.from_snapshot && dt > join_window) {
       continue
     }
+    if !outbounds.contains(c.outbound) {
+      outbounds.push(c.outbound)
+    }
     // Snapshots carry the full chain: prefer them, then the closest time.
     let penalty = if c.from_snapshot { 0L } else { join_window + 1L }
     let score = dt + penalty
@@ -499,7 +566,15 @@ fn Engine::core_match(self : Engine, f : Flow) -> CoreInfo? {
       best_score = score
     }
   }
-  best
+  match best {
+    None => (None, NoMatch, 0L)
+    // The same connection is usually seen twice (log line and snapshot):
+    // that agrees with itself. Only disagreeing outbounds are ambiguous.
+    Some(c) if outbounds.length() > 1 =>
+      (Some(c), Ambiguous, abs64(c.t - f.first))
+    Some(c) if c.from_snapshot => (Some(c), Snapshot, abs64(c.t - f.first))
+    Some(c) => (Some(c), LogLine, abs64(c.t - f.first))
+  }
 }
 
 ///|
@@ -535,13 +610,19 @@ pub(all) struct FlowSummary {
   down : Int64
   /// Entered TUN, lasted long, and the core never reported it.
   inconsistent : Bool
+  /// How the exit was found.
+  match_kind : MatchKind
+  /// Distance between the flow's start and the matched core record.
+  match_dt : Int64
+  /// Route pointed at TUN, but the socket was bound to another adapter.
+  bound_off_tun : Bool
 }
 
 ///|
 fn Engine::summarize(self : Engine, f : Flow) -> FlowSummary {
-  let core = match f.entry {
+  let (core, match_kind, match_dt) = match f.entry {
     ProxyPort | Tun => self.core_match(f)
-    Direct | Lan => None
+    Direct | Lan => (None, NoMatch, 0L)
   }
   let exit = match (f.entry, core) {
     (Direct, _) | (Lan, _) => NotProxied
@@ -595,6 +676,9 @@ fn Engine::summarize(self : Engine, f : Flow) -> FlowSummary {
     // connection record, so it is not an inconsistency.
     f.key.peer.port != 53 &&
     f.last - f.first > inconsistent_after,
+    match_kind,
+    match_dt,
+    bound_off_tun: f.bound_off_tun,
   }
 }
 
@@ -631,6 +715,8 @@ pub(all) struct UsageRow {
   domain : String
   entry : Entry
   exit : Exit
+  /// The exit came from disagreeing core records (MatchKind::Ambiguous).
+  ambiguous : Bool
   rule : String
   up : Int64
   down : Int64
@@ -638,14 +724,14 @@ pub(all) struct UsageRow {
 
 ///|
 /// Aggregates flows into per-minute rows keyed by (minute, app, process,
-/// domain, entry, exit, rule). Rows are sorted by minute, then by first
+/// domain, entry, exit, ambiguous, rule). Rows are sorted by minute, then by first
 /// appearance.
 pub fn Engine::usage_rows(
   self : Engine,
   rules : @rules.RuleSet,
 ) -> Array[UsageRow] {
   let rows : Map[
-    (Int64, String, String, String, Entry, Exit, String),
+    (Int64, String, String, String, Entry, Exit, Bool, String),
     (Int64, Int64),
   ] = Map([])
   let keys = []
@@ -669,6 +755,7 @@ pub fn Engine::usage_rows(
         f.domain,
         f.entry,
         f.exit,
+        f.match_kind == Ambiguous,
         f.rule,
       )
       match rows.get(k) {
@@ -690,7 +777,8 @@ pub fn Engine::usage_rows(
       domain: k.3,
       entry: k.4,
       exit: k.5,
-      rule: k.6,
+      ambiguous: k.6,
+      rule: k.7,
       up: u,
       down: d,
     }
@@ -703,6 +791,8 @@ pub(all) struct Totals {
   by_entry : Map[Entry, (Int64, Int64)]
   /// Bytes that entered a core but matched no core record.
   unknown_exit : Int64
+  /// Bytes whose core records disagree on the outbound (MatchKind::Ambiguous).
+  ambiguous_exit : Int64
   core_outbound_up : Int64
   core_outbound_down : Int64
   dropped_mirror : Int64
@@ -713,6 +803,7 @@ pub(all) struct Totals {
 pub fn Engine::totals(self : Engine) -> Totals {
   let by_entry = Map([])
   let mut unknown_exit = 0L
+  let mut ambiguous_exit = 0L
   for f in self.flows() {
     let (u, d) = match by_entry.get(f.entry) {
       Some(v) => v
@@ -722,10 +813,14 @@ pub fn Engine::totals(self : Engine) -> Totals {
     if f.exit == Unknown {
       unknown_exit += f.up + f.down
     }
+    if f.match_kind == Ambiguous {
+      ambiguous_exit += f.up + f.down
+    }
   }
   {
     by_entry,
     unknown_exit,
+    ambiguous_exit,
     core_outbound_up: self.core_out_up,
     core_outbound_down: self.core_out_down,
     dropped_mirror: self.dropped_mirror,
@@ -745,7 +840,7 @@ pub fn Engine::take_usage(
   settle~ : Int64 = join_window,
 ) -> Array[UsageRow] {
   let rows : Map[
-    (Int64, String, String, String, Entry, Exit, String),
+    (Int64, String, String, String, Entry, Exit, Bool, String),
     (Int64, Int64),
   ] = Map([])
   let keys = []
@@ -768,6 +863,7 @@ pub fn Engine::take_usage(
         f.domain,
         f.entry,
         f.exit,
+        f.match_kind == Ambiguous,
         f.rule,
       )
       match rows.get(rk) {
@@ -789,7 +885,8 @@ pub fn Engine::take_usage(
       domain: k.3,
       entry: k.4,
       exit: k.5,
-      rule: k.6,
+      ambiguous: k.6,
+      rule: k.7,
       up: u,
       down: d,
     }

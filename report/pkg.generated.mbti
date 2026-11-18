@@ -2,10 +2,13 @@
 package "shop1111/netwhere/report"
 
 import {
+  "moonbitlang/core/debug",
   "shop1111/netwhere/ledger",
 }
 
 // Values
+pub fn coverage_text(CoverageSummary) -> String
+
 pub fn display_width(String) -> Int32
 
 pub fn entry_label(@ledger.Entry, Bool) -> String
@@ -20,7 +23,13 @@ pub fn format_local_date(Int64, Int32) -> String
 
 pub fn human_bytes(Int64) -> String
 
+pub fn human_duration(Int64) -> String
+
 pub fn local_day_start(Int64, Int32) -> Int64
+
+pub fn plan_estimate(Array[(String, String, Int64)], (String) -> Double) -> PlanEstimate
+
+pub fn summarize_coverage(Array[Coverage], Int64, Int64) -> CoverageSummary
 
 pub fn table(Array[String], Array[Array[String]]) -> String
 
@@ -29,6 +38,33 @@ pub fn totals_text(@ledger.Totals, Bool) -> String
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct Coverage {
+  minute : Int64
+  collector_ticks : Int64
+  core_ticks : Int64
+  link_ticks : Int64
+  etw_lost : Int64
+  dropped : Int64
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct CoverageSummary {
+  span_ticks : Int64
+  collector_ticks : Int64
+  core_ticks : Int64
+  link_ticks : Int64
+  etw_lost : Int64
+  dropped : Int64
+}
+pub fn CoverageSummary::complete(Self) -> Bool
+
+#derive(Eq, @debug.Debug)
+pub(all) struct PlanEstimate {
+  low : Int64
+  high : Int64
+  uncertain : Int64
+}
 
 // Type aliases
 

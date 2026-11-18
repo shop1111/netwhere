@@ -34,6 +34,11 @@ priv struct Live {
   listeners : Map[(@netaddr.IpAddr, Int32), Int32]
   mut listeners_at : Int64
   log : StringBuilder
+  /// minute -> (collector, core, link) ticks not yet written (coverage).
+  cov : Map[Int64, (Int64, Int64, Int64)]
+  mut cov_at : Int64
+  mut cov_lost : Int64
+  mut cov_dropped : Int64
 }
 
 ///|
@@ -367,6 +372,79 @@ fn Live::write_usage(self : Live, now : Int64, settle : Int64) -> Unit {
 }
 
 ///|
+/// Counts the time since the previous call as covered (or not). A long gap
+/// (sleep, hibernation) counts as at most 5 s.
+fn Live::tick_coverage(self : Live, now : Int64) -> Unit {
+  let dt = now - self.cov_at
+  self.cov_at = now
+  if dt <= 0L || self.paused || self.degraded {
+    return
+  }
+  let dt = if dt > 5L * sec { 5L * sec } else { dt }
+  let minute = now / @store.ticks_per_minute
+  let (c, k, l) = self.cov.get(minute).unwrap_or((0L, 0L, 0L))
+  let core = self.engine.core_present()
+  self.cov[minute] = (
+    c + dt,
+    k + (if core { dt } else { 0L }),
+    l + (if core && self.core_link == "connected" { dt } else { 0L }),
+  )
+}
+
+///|
+/// Writes the coverage gathered since the previous call; event losses go
+/// to the current minute.
+fn Live::write_coverage(self : Live, now : Int64) -> Unit {
+  let s = @etw.stats()
+  let lost = match @etw.session_loss() {
+    Some(l) => l.events_lost + l.realtime_buffers_lost
+    None => 0L
+  }
+  let d_lost = if lost >= self.cov_lost { lost - self.cov_lost } else { lost }
+  let d_dropped = if s.dropped >= self.cov_dropped {
+    s.dropped - self.cov_dropped
+  } else {
+    s.dropped
+  }
+  self.cov_lost = lost
+  self.cov_dropped = s.dropped
+  let minute = now / @store.ticks_per_minute
+  if (d_lost > 0L || d_dropped > 0L) && !self.cov.contains(minute) {
+    self.cov[minute] = (0L, 0L, 0L)
+  }
+  let rows = self.cov
+    .iter()
+    .map(kv => {
+      let (c, k, l) = kv.1
+      let here = kv.0 == minute
+      @report.Coverage::{
+        minute: kv.0,
+        collector_ticks: c,
+        core_ticks: k,
+        link_ticks: l,
+        etw_lost: if here {
+          d_lost
+        } else {
+          0L
+        },
+        dropped: if here {
+          d_dropped
+        } else {
+          0L
+        },
+      }
+    })
+    .collect()
+  self.cov.clear()
+  self.db.add_coverage(rows) catch {
+    e => {
+      self.last_error = e.to_string()
+      self.note(e.to_string())
+    }
+  }
+}
+
+///|
 fn Live::heartbeat(self : Live, state : String) -> Unit {
   let s = @etw.stats()
   let usage = @sys.self_usage()
@@ -528,6 +606,10 @@ async fn run_collector(opts : RunOptions) -> Int32 {
     listeners,
     listeners_at: 0L,
     log: StringBuilder(),
+    cov: Map([]),
+    cov_at: @sys.now(),
+    cov_lost: 0L,
+    cov_dropped: 0L,
   }
   cell.val = Some(live)
   live.note(
@@ -601,8 +683,10 @@ async fn run_collector(opts : RunOptions) -> Int32 {
         live.feed(reader.drain_live(), devices)
         live.read_mailbox()
         let now = @sys.now()
+        live.tick_coverage(now)
         if now - last_usage >= 10L * sec {
           live.write_usage(now, @ledger.join_window)
+          live.write_coverage(now)
           let protect = live.trace_pids()
           ignore(
             engine.evict_idle(now, 120L * sec, protect=p => protect.contains(p)),
@@ -644,6 +728,8 @@ async fn run_collector(opts : RunOptions) -> Int32 {
   @etw.stop()
   live.feed(reader.drain_live(), devices)
   live.write_usage(9_000_000_000_000_000_000L, 0L)
+  live.tick_coverage(@sys.now())
+  live.write_coverage(@sys.now())
   live.heartbeat("stopped")
   live.note(if finished is None { "stopped (signal)" } else { "stopped" })
   live.flush_log()

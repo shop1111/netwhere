@@ -26,7 +26,7 @@ fn route_column(r : @store.UsageRecord) -> Int32 {
   match (r.exit_kind, r.entry) {
     ("node", _) => 0
     ("core-direct", _) | ("core-reject", _) => 1
-    ("unknown", _) => 2
+    ("unknown", _) | ("ambiguous", _) => 2
     (_, "lan") => 4
     _ => 3
   }
@@ -131,19 +131,60 @@ async fn cmd_report(args : ArrayView[String]) -> Int32 {
     println("traffic \{label}, by \{by}:")
     println("")
     println(cmd_report_rows(rows, by, limit, config).trim_end())
-    // Plan consumption: proxy-node bytes times each node's multiplier.
-    let mut plan = 0.0
+    // Plan consumption: proxy-node bytes times each node's multiplier; a
+    // range when some exits are unknown or ambiguous.
     let mut total = 0L
+    let mut bypass = 0L
     for r in rows {
       total += r.up + r.down
-      if r.exit_kind == "node" {
-        plan += (r.up + r.down).to_double() * config.multiplier(r.node)
+      if r.entry == "bypass" {
+        bypass += r.up + r.down
       }
     }
+    let plan = @report.plan_estimate(
+      rows.map(r => (r.exit_kind, r.node, r.up + r.down)),
+      n => config.multiplier(n),
+    )
+    let h = @report.human_bytes
     println("")
     println(
-      "total \{@report.human_bytes(total)}; estimated plan usage \{@report.human_bytes(plan.to_int64())}",
+      if plan.uncertain == 0L {
+        "total \{h(total)}; estimated plan usage \{h(plan.low)}"
+      } else {
+        "total \{h(total)}; estimated plan usage \{h(plan.low)} to \{h(plan.high)} (\{h(plan.uncertain)} with unknown or ambiguous exit)"
+      },
     )
+    println(
+      "  plan usage counts application bytes (with TLS/HTTP, without proxy-protocol overhead); multipliers come from config.json or node names",
+    )
+    if bypass > 0L {
+      println(
+        "  \{h(bypass)} bypassed the core; `netwhere trace -- COMMAND` shows candidate causes for a command",
+      )
+    }
+    let now_minute = @sys.now() / @store.ticks_per_minute + 1L
+    let cov_rows = db.coverage_between(from, to)
+    let cov = @report.summarize_coverage(
+      cov_rows,
+      from,
+      if to < now_minute {
+        to
+      } else {
+        now_minute
+      },
+    )
+    let gaps = @report.coverage_text(cov)
+    if cov_rows.length() == 0 {
+      // Ledgers written before coverage existed (0.1.0) have none.
+      println("")
+      println(
+        "not covered: no coverage records for this period, so gaps cannot be ruled out",
+      )
+    } else if gaps != "" {
+      println("")
+      println("not covered:")
+      println(gaps.trim_end())
+    }
     0
   } catch {
     e => {

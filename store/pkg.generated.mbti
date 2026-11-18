@@ -4,6 +4,7 @@ package "shop1111/netwhere/store"
 import {
   "moonbitlang/core/debug",
   "shop1111/netwhere/ledger",
+  "shop1111/netwhere/report",
 }
 
 // Values
@@ -12,6 +13,8 @@ pub fn exit_columns(@ledger.Exit) -> (String, String)
 pub let schema_version : Int32
 
 pub let ticks_per_minute : Int64
+
+pub fn usage_exit_columns(@ledger.Exit, Bool) -> (String, String)
 
 // Errors
 #derive(@debug.Debug)
@@ -32,8 +35,10 @@ pub(all) enum Cell {
 pub struct Db {
   // private fields
 }
+pub fn Db::add_coverage(Self, Array[@report.Coverage]) -> Unit raise StoreError
 pub fn Db::add_usage(Self, Array[@ledger.UsageRow], Bool) -> Unit raise StoreError
 pub fn Db::close(Self) -> Unit
+pub fn Db::coverage_between(Self, Int64, Int64) -> Array[@report.Coverage] raise StoreError
 pub fn Db::heartbeat(Self) -> Heartbeat? raise StoreError
 pub fn Db::meta(Self, String) -> String? raise StoreError
 pub fn Db::open_reader(String) -> Self raise StoreError
@@ -97,6 +102,8 @@ pub(all) struct TraceFlow {
   up : Int64
   down : Int64
   inconsistent : Bool
+  match_kind : String
+  bound_off_tun : Bool
 }
 
 #derive(Eq, @debug.Debug)

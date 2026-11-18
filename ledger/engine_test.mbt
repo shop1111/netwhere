@@ -512,3 +512,95 @@ test "a long-lived connection keeps its exit after eviction runs" {
     content="curl.exe tcp 127.0.0.1:7890 entry=proxy-port exit=unknown domain= up=0 down=500",
   )
 }
+
+///|
+test "records that disagree on the outbound make the exit ambiguous" {
+  let e = run(header(), [
+    curl_start(0L),
+    net(0L, 10, curl_pid, "127.0.0.1", 63030, "127.0.0.1", 7890, 100),
+    MihomoLog(
+      t0 + 1L * sec,
+      "[TCP] 127.0.0.1:63030(curl.exe) --> a.test:443 match Match using Node A",
+    ),
+    MihomoLog(
+      t0 + 3L * sec,
+      "[TCP] 127.0.0.1:63030(curl.exe) --> b.test:443 match Match using Node B",
+    ),
+  ])
+  let f = e.flows()[0]
+  // The closer record is still shown, but flagged.
+  assert_eq(f.exit, Node("Node A"))
+  assert_eq(f.match_kind, Ambiguous)
+  assert_eq(f.match_dt, 1L * sec)
+  let t = e.totals()
+  assert_eq(t.ambiguous_exit, 100L)
+  assert_eq(t.unknown_exit, 0L)
+  // Usage rows carry the flag, so the ledger never counts it as a node.
+  let rows = e.usage_rows(@rules.RuleSet::new())
+  assert_true(rows.iter().all(r => r.ambiguous))
+}
+
+///|
+test "log line and snapshot of the same connection agree: not ambiguous" {
+  let e = run(header(), [
+    curl_start(0L),
+    net(0L, 10, curl_pid, "127.0.0.1", 64607, "127.0.0.1", 7890, 100),
+    MihomoLog(
+      t0 + 1L,
+      "[TCP] 127.0.0.1:64607(curl.exe) --> speed.cloudflare.com:443 match Match using Proxy[HK 01]",
+    ),
+    snapshot(
+      2L * sec,
+      (
+        #|{"downloadTotal":1,"uploadTotal":1,"connections":[{"id":"a","metadata":{
+        #| "network":"tcp","type":"HTTP","sourceIP":"127.0.0.1","sourcePort":"64607",
+        #| "host":"speed.cloudflare.com","process":"curl.exe"},
+        #| "start":"2026-11-13T01:18:04.8293434+08:00",
+        #| "chains":["HK 01","Proxy"],"rule":"Match","rulePayload":""}]}
+      ),
+    ),
+  ])
+  let f = e.flows()[0]
+  assert_eq(f.exit, Node("HK 01"))
+  assert_eq(f.match_kind, Snapshot)
+}
+
+///|
+test "match kinds: log only, none, not proxied" {
+  let e = run(header(), [
+    curl_start(0L),
+    net(0L, 10, curl_pid, "127.0.0.1", 63040, "127.0.0.1", 7890, 100),
+    MihomoLog(
+      t0 + 1L * sec,
+      "[TCP] 127.0.0.1:63040(curl.exe) --> a.test:443 match Match using Node A",
+    ),
+    net(0L, 10, curl_pid, "127.0.0.1", 63041, "127.0.0.1", 7890, 100),
+    net(0L, 10, curl_pid, "192.0.2.10", 63042, "203.0.113.9", 443, 100),
+  ])
+  let kinds = e.flows().map(f => f.match_kind)
+  assert_eq(kinds, [LogLine, NoMatch, NoMatch])
+  assert_eq(e.flows()[2].exit, NotProxied)
+}
+
+///|
+test "route says TUN but the socket is bound to another adapter: bypass" {
+  let e = run(header(tun=true), [
+    Route({
+      t: t0,
+      dst: ipa("140.82.112.3"),
+      if_index: 42,
+      if_name: "FlClash",
+      via_tun: true,
+    }),
+    // curl --interface 192.168.1.10: the route points at TUN, the local
+    // address is the physical adapter's.
+    net(0L, 10, curl_pid, "192.168.1.10", 51001, "140.82.112.3", 443, 100),
+    // An ordinary socket to the same address does enter TUN.
+    net(0L, 10, curl_pid, "198.18.0.1", 51002, "140.82.112.3", 443, 100),
+  ])
+  let fs = e.flows()
+  assert_eq(fs[0].entry, Direct)
+  assert_true(fs[0].bound_off_tun)
+  assert_eq(fs[1].entry, Tun)
+  assert_false(fs[1].bound_off_tun)
+}

@@ -16,6 +16,26 @@ pub fn exit_columns(x : @ledger.Exit) -> (String, String) {
 }
 
 ///|
+/// How a usage row's exit is stored. An exit taken from disagreeing core
+/// records is kept apart as ("ambiguous", best guess), so that it is never
+/// counted as a known node.
+pub fn usage_exit_columns(
+  x : @ledger.Exit,
+  ambiguous : Bool,
+) -> (String, String) {
+  if !ambiguous {
+    return exit_columns(x)
+  }
+  let guess = match x {
+    Node(n) => n
+    CoreDirect => "DIRECT"
+    CoreReject => "REJECT"
+    _ => ""
+  }
+  ("ambiguous", guess)
+}
+
+///|
 /// Adds usage rows (deltas) in one transaction.
 pub fn Db::add_usage(
   self : Db,
@@ -27,7 +47,7 @@ pub fn Db::add_usage(
   }
   self.transaction(() => {
     for r in rows {
-      let (kind, node) = exit_columns(r.exit)
+      let (kind, node) = usage_exit_columns(r.exit, r.ambiguous)
       self.run(
         (
           #|INSERT INTO usage(minute, app, process, domain, entry, exit_kind, node, rule, up, down)
@@ -119,6 +139,7 @@ pub fn Db::prune_usage(
   before_minute : Int64,
 ) -> Unit raise StoreError {
   self.run("DELETE FROM usage WHERE minute < ?1", [Int(before_minute)])
+  self.run("DELETE FROM coverage WHERE minute < ?1", [Int(before_minute)])
 }
 
 // ---------------------------------------------------------------- heartbeat
@@ -288,8 +309,8 @@ pub fn Db::put_trace(
       self.run(
         (
           #|INSERT INTO trace_flows(request_id, pid, process, proto, peer, domain, target_port,
-          #|  entry, exit_kind, node, rule, up, down, inconsistent)
-          #|VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+          #|  entry, exit_kind, node, rule, up, down, inconsistent, match, bound_off_tun)
+          #|VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
         ),
         [
           Text(id),
@@ -306,6 +327,8 @@ pub fn Db::put_trace(
           Int(f.up),
           Int(f.down),
           Int(if f.inconsistent { 1L } else { 0L }),
+          Text(f.match_kind.to_string()),
+          Int(if f.bound_off_tun { 1L } else { 0L }),
         ],
       )
     }
@@ -328,6 +351,9 @@ pub(all) struct TraceFlow {
   up : Int64
   down : Int64
   inconsistent : Bool
+  /// "snapshot" | "log" | "ambiguous" | "none" (MatchKind)
+  match_kind : String
+  bound_off_tun : Bool
 }
 
 ///|
@@ -337,7 +363,7 @@ pub fn Db::trace_flows(
 ) -> Array[TraceFlow] raise StoreError {
   self
   .query(
-    "SELECT pid, process, proto, peer, domain, target_port, entry, exit_kind, node, rule, up, down, inconsistent FROM trace_flows WHERE request_id = ?1",
+    "SELECT pid, process, proto, peer, domain, target_port, entry, exit_kind, node, rule, up, down, inconsistent, match, bound_off_tun FROM trace_flows WHERE request_id = ?1",
     [Text(id)],
   )
   .map(r => {
@@ -354,6 +380,8 @@ pub fn Db::trace_flows(
     up: int_of(r[10]),
     down: int_of(r[11]),
     inconsistent: int_of(r[12]) != 0L,
+    match_kind: text_of(r[13]),
+    bound_off_tun: int_of(r[14]) != 0L,
   })
 }
 
@@ -382,5 +410,65 @@ pub fn Db::prune_requests(self : Db, before : Int64) -> Unit raise StoreError {
       [Int(before)],
     )
     self.run("DELETE FROM requests WHERE updated < ?1", [Int(before)])
+  })
+}
+
+// ----------------------------------------------------------------- coverage
+
+///|
+/// Adds per-minute coverage deltas (see @report.Coverage).
+pub fn Db::add_coverage(
+  self : Db,
+  rows : Array[@report.Coverage],
+) -> Unit raise StoreError {
+  if rows.length() == 0 {
+    return
+  }
+  self.transaction(() => {
+    for c in rows {
+      self.run(
+        (
+          #|INSERT INTO coverage(minute, collector_ticks, core_ticks, link_ticks, etw_lost, dropped)
+          #|VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+          #|ON CONFLICT(minute) DO UPDATE SET
+          #|  collector_ticks = collector_ticks + excluded.collector_ticks,
+          #|  core_ticks = core_ticks + excluded.core_ticks,
+          #|  link_ticks = link_ticks + excluded.link_ticks,
+          #|  etw_lost = etw_lost + excluded.etw_lost,
+          #|  dropped = dropped + excluded.dropped
+        ),
+        [
+          Int(c.minute),
+          Int(c.collector_ticks),
+          Int(c.core_ticks),
+          Int(c.link_ticks),
+          Int(c.etw_lost),
+          Int(c.dropped),
+        ],
+      )
+    }
+  })
+}
+
+///|
+/// Coverage rows with from <= minute < to. Minutes without a row are
+/// minutes the collector did not run.
+pub fn Db::coverage_between(
+  self : Db,
+  from : Int64,
+  to : Int64,
+) -> Array[@report.Coverage] raise StoreError {
+  self
+  .query(
+    "SELECT minute, collector_ticks, core_ticks, link_ticks, etw_lost, dropped FROM coverage WHERE minute >= ?1 AND minute < ?2 ORDER BY minute",
+    [Int(from), Int(to)],
+  )
+  .map(r => {
+    minute: int_of(r[0]),
+    collector_ticks: int_of(r[1]),
+    core_ticks: int_of(r[2]),
+    link_ticks: int_of(r[3]),
+    etw_lost: int_of(r[4]),
+    dropped: int_of(r[5]),
   })
 }

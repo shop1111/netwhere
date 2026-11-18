@@ -1,0 +1,66 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/diagnose"
+
+import {
+  "moonbitlang/core/debug",
+  "shop1111/netwhere/netaddr",
+}
+
+// Values
+pub fn cause_text(Cause) -> String
+
+pub fn diagnose(FlowFacts, Array[FlowFacts], Context) -> Array[Cause]
+
+pub fn git_config_proxy(String) -> String
+
+pub fn glob_match(String, String) -> Bool
+
+pub fn no_proxy_match(String, String, @netaddr.IpAddr) -> String?
+
+pub fn override_match(String, String, @netaddr.IpAddr) -> String?
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct Cause {
+  code : String
+  certainty : Certainty
+  summary : String
+  evidence : Array[String]
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Certainty {
+  Certain
+  Likely
+  Undetermined
+}
+pub impl Show for Certainty
+
+pub(all) struct Context {
+  system_proxy : Bool
+  system_proxy_server : String
+  system_proxy_override : String
+  env : Array[(String, String)]
+  git_proxy : String
+  tun_enabled : Bool
+  tun_has_v6 : Bool
+  route_if : (@netaddr.IpAddr) -> String?
+}
+pub fn Context::default() -> Self
+
+#derive(Eq, @debug.Debug)
+pub(all) struct FlowFacts {
+  process : String
+  proto : String
+  peer : @netaddr.IpAddr
+  port : Int32
+  domain : String
+  entry : String
+  bound_off_tun : Bool
+}
+
+// Type aliases
+
+// Traits

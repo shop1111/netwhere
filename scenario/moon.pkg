@@ -1,4 +1,5 @@
 import {
+  "shop1111/netwhere/diagnose",
   "shop1111/netwhere/ledger",
   "shop1111/netwhere/report",
   "moonbitlang/core/json",

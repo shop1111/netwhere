@@ -132,6 +132,31 @@ $iwrExit = if ($systemProxy) { "core" } else { "any" }
 Invoke-Scenario "powershell-iwr" "powershell" "-NoProfile -Command `"Invoke-WebRequest -UseBasicParsing '$small' | Out-Null`"" @(
   [ordered]@{ process = "powershell.exe"; entry = $iwrEntry; exit = $iwrExit; down_min = 200000; only = $false }
 )
+# UDP: a system proxy cannot carry it (diagnosis: udp-not-proxied). Under
+# TUN the query is routed into TUN and answered by the core's DNS hijack.
+$udpEntry = if ($Mode -eq "tun") { "route" } else { "bypass" }
+$udpExit = if ($Mode -eq "tun") { "any" } else { "-" }
+Invoke-Scenario "nslookup-udp" "nslookup" "example.com 1.1.1.1" @(
+  [ordered]@{ process = "nslookup.exe"; entry = $udpEntry; exit = $udpExit; down_min = 20; only = $false }
+)
+if ($Mode -eq "tun") {
+  # A socket bound to the physical adapter skips the TUN route although the
+  # route table points at TUN (diagnosis: bound-off-tun). The physical
+  # address: IPv4 of the adapters with a default route, outside the usual
+  # TUN ranges (198.18.0.0/15, 172.19.0.0/16).
+  $physical = Get-NetRoute -AddressFamily IPv4 -DestinationPrefix "0.0.0.0/0" -ErrorAction SilentlyContinue |
+    Sort-Object RouteMetric |
+    ForEach-Object { Get-NetIPAddress -AddressFamily IPv4 -InterfaceIndex $_.InterfaceIndex -ErrorAction SilentlyContinue } |
+    Where-Object { $_.IPAddress -notmatch '^(198\.1[89]\.|172\.19\.|169\.254\.)' } |
+    Select-Object -First 1 -ExpandProperty IPAddress
+  if ($physical) {
+    Invoke-Scenario "curl-bound-physical" $curl "-4 -s -o NUL --noproxy * --interface $physical `"$url`"" @(
+      [ordered]@{ process = "curl.exe"; entry = "bypass"; exit = "-"; down_min = $Bytes; only = $true }
+    )
+  } else {
+    Write-Host "curl-bound-physical: no physical IPv4 address found, skipped"
+  }
+}
 
 # --- stop the recorder ----------------------------------------------------
 Start-Sleep -Seconds 3

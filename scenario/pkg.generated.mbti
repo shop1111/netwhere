@@ -3,11 +3,18 @@ package "shop1111/netwhere/scenario"
 
 import {
   "moonbitlang/core/debug",
+  "shop1111/netwhere/diagnose",
   "shop1111/netwhere/ledger",
 }
 
 // Values
 pub fn check(Manifest, @ledger.Recording) -> Array[(String, Outcome)]
+
+pub fn context_of(Manifest, @ledger.Recording) -> @diagnose.Context
+
+pub fn diagnoses(Manifest, @ledger.Recording) -> Array[(String, Array[String])]
+
+pub fn facts_of(@ledger.FlowSummary, Bool) -> @diagnose.FlowFacts
 
 pub fn outcome_text(Array[(String, Outcome)]) -> String
 
@@ -35,6 +42,9 @@ pub(all) struct Manifest {
   mode : String
   recording : String
   scenarios : Array[Scenario]
+  system_proxy : Bool
+  env_proxy : Bool
+  git_proxy : Bool
 }
 
 #derive(Eq, @debug.Debug)

@@ -37,6 +37,10 @@ pub(all) struct Manifest {
   mode : String
   recording : String
   scenarios : Array[Scenario]
+  /// The recording machine's settings (for diagnosing bypasses).
+  system_proxy : Bool
+  env_proxy : Bool
+  git_proxy : Bool
 }
 
 ///|
@@ -123,6 +127,9 @@ pub fn parse_manifest(text : StringView) -> Manifest raise ManifestError {
     mode: str_field(top, "mode"),
     recording: str_field(top, "recording"),
     scenarios,
+    system_proxy: top.get("system_proxy") is Some(True),
+    env_proxy: top.get("env_proxy") is Some(True),
+    git_proxy: top.get("git_proxy") is Some(True),
   }
 }
 
@@ -232,4 +239,85 @@ pub fn outcome_text(results : Array[(String, Outcome)]) -> String {
     }
   })
   .join("\n")
+}
+
+///|
+/// A flow as the diagnosis sees it.
+pub fn facts_of(
+  f : @ledger.FlowSummary,
+  core_present : Bool,
+) -> @diagnose.FlowFacts {
+  {
+    process: @ledger.base_name(f.process),
+    proto: if f.proto == Tcp {
+      "tcp"
+    } else {
+      "udp"
+    },
+    peer: f.peer.addr,
+    port: f.target_port,
+    domain: f.domain,
+    entry: @report.entry_label(f.entry, core_present),
+    bound_off_tun: f.bound_off_tun,
+  }
+}
+
+///|
+/// The diagnosis context a manifest and its recording describe.
+pub fn context_of(m : Manifest, rec : @ledger.Recording) -> @diagnose.Context {
+  let tun = m.mode == "tun" && rec.header.tun.length() > 0
+  {
+    ..@diagnose.Context::default(),
+    system_proxy: m.system_proxy,
+    env: if m.env_proxy {
+      [("HTTPS_PROXY", "(set)")]
+    } else {
+      []
+    },
+    git_proxy: if m.git_proxy {
+      "(set)"
+    } else {
+      ""
+    },
+    tun_enabled: tun,
+    tun_has_v6: rec.header.tun
+    .iter()
+    .any(t => {
+      t.prefixes.iter().any(p => !p.addr.is_v4() && !p.addr.is_link_local())
+    }),
+  }
+}
+
+///|
+/// For each scenario, the causes found for its bypassing flows, one line
+/// per (process, destination, cause): "curl.exe tcp [..]:443 tun-no-ipv6
+/// (certain)".
+pub fn diagnoses(
+  m : Manifest,
+  rec : @ledger.Recording,
+) -> Array[(String, Array[String])] {
+  let (engine, _) = @ledger.replay(rec)
+  let core = engine.core_present()
+  let all = engine.flows()
+  let ctx = context_of(m, rec)
+  let out = []
+  for s in m.scenarios {
+    let tree = engine.process_tree(s.pid)
+    let facts = all
+      .filter(f => tree.contains(f.pid))
+      .map(f => facts_of(f, core))
+    let lines = []
+    for f in facts {
+      let same = facts.filter(o => o.process == f.process)
+      for c in @diagnose.diagnose(f, same, ctx) {
+        let addr = if f.peer.is_v4() { "\{f.peer}" } else { "[\{f.peer}]" }
+        let line = "\{f.process} \{f.proto} \{addr}:\{f.port} \{c.code} (\{c.certainty})"
+        if !lines.contains(line) {
+          lines.push(line)
+        }
+      }
+    }
+    out.push((s.name, lines))
+  }
+  out
 }

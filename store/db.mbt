@@ -1,7 +1,7 @@
 // ledger.db: written only by the collector, read by everyone else.
 
 ///|
-pub let schema_version : Int32 = 1
+pub let schema_version : Int32 = 2
 
 ///|
 let schema : String =
@@ -36,9 +36,15 @@ let schema : String =
   #|  proto TEXT NOT NULL, peer TEXT NOT NULL, domain TEXT NOT NULL,
   #|  target_port INTEGER NOT NULL, entry TEXT NOT NULL, exit_kind TEXT NOT NULL,
   #|  node TEXT NOT NULL, rule TEXT NOT NULL, up INTEGER NOT NULL,
-  #|  down INTEGER NOT NULL, inconsistent INTEGER NOT NULL
+  #|  down INTEGER NOT NULL, inconsistent INTEGER NOT NULL,
+  #|  match TEXT NOT NULL DEFAULT 'none', bound_off_tun INTEGER NOT NULL DEFAULT 0
   #|);
   #|CREATE INDEX IF NOT EXISTS trace_flows_by_request ON trace_flows(request_id);
+  #|CREATE TABLE IF NOT EXISTS coverage(
+  #|  minute INTEGER PRIMARY KEY, collector_ticks INTEGER NOT NULL,
+  #|  core_ticks INTEGER NOT NULL, link_ticks INTEGER NOT NULL,
+  #|  etw_lost INTEGER NOT NULL, dropped INTEGER NOT NULL
+  #|);
 
 ///|
 #borrow(path)
@@ -112,10 +118,25 @@ pub fn Db::open_writer(path : String) -> Db raise StoreError {
   db.exec(
     "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=5000; PRAGMA trusted_schema=OFF;",
   )
-  db.exec("BEGIN; " + schema + " COMMIT;")
-  let v = db.meta("schema_version")
+  let v = db.meta_if_any()
   match v {
-    None => db.set_meta("schema_version", schema_version.to_string())
+    // Version 1 -> 2: trace_flows gains match and bound_off_tun; the
+    // coverage table is new (created by the schema below).
+    Some("1") =>
+      db.exec(
+        (
+          #|BEGIN;
+          #|ALTER TABLE trace_flows ADD COLUMN match TEXT NOT NULL DEFAULT 'none';
+          #|ALTER TABLE trace_flows ADD COLUMN bound_off_tun INTEGER NOT NULL DEFAULT 0;
+          #|COMMIT;
+        ),
+      )
+    _ => ()
+  }
+  db.exec("BEGIN; " + schema + " COMMIT;")
+  match v {
+    None | Some("1") =>
+      db.set_meta("schema_version", schema_version.to_string())
     Some(s) if s == schema_version.to_string() => ()
     Some(s) => raise StoreError("schema version \{s} is not supported")
   }
@@ -164,6 +185,20 @@ pub fn[X] Db::transaction(self : Db, f : () -> X raise) -> X raise StoreError {
   }
   self.exec("COMMIT;")
   r
+}
+
+///|
+/// The stored schema version, if the meta table exists yet.
+fn Db::meta_if_any(self : Db) -> String? raise StoreError {
+  let t = self.query(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'meta'",
+    [],
+  )
+  if t.length() == 0 {
+    None
+  } else {
+    self.meta("schema_version")
+  }
 }
 
 ///|

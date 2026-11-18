@@ -46,6 +46,8 @@ pub fn process_user_sid(Int32) -> String?
 
 pub fn quote_arg(String) -> String
 
+pub fn reg_user_value(String, String) -> String?
+
 pub fn resume_child() -> Bool
 
 pub fn run_elevated(String, String) -> Result[Int32, Int32]

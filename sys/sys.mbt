@@ -371,3 +371,17 @@ pub fn run_wait(program : String, args : Array[String]) -> Result[Int32, Int32] 
 pub fn detach_console() -> Unit {
   nw_detach_console()
 }
+
+///|
+#borrow(subkey, name)
+extern "c" fn nw_reg_user_value(subkey : String, name : String) -> String = "nw_reg_user_value"
+
+///|
+/// A value under HKEY_CURRENT_USER\<subkey> as text (DWORDs in decimal);
+/// None when missing.
+pub fn reg_user_value(subkey : String, name : String) -> String? {
+  match nw_reg_user_value(subkey, name) {
+    "" => None
+    v => Some(v)
+  }
+}

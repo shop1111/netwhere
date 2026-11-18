@@ -62,3 +62,15 @@ test "run_wait returns the exit code" {
   assert_eq(@sys.run_wait("cmd.exe", ["/c", "exit 5"]), Ok(5))
   assert_true(@sys.run_wait("no-such-program-netwhere.exe", []) is Err(2))
 }
+
+///|
+test "reg_user_value reads the current user's hive" {
+  // Every Windows profile has this key; ProxyEnable may be absent.
+  let k = "Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings"
+  match @sys.reg_user_value(k, "ProxyEnable") {
+    Some(v) => assert_true(v == "0" || v == "1", msg="ProxyEnable=\{v}")
+    None => ()
+  }
+  assert_eq(@sys.reg_user_value(k, "NoSuchValueForNetwhere"), None)
+  assert_eq(@sys.reg_user_value("Software\\NoSuchKeyForNetwhere", "x"), None)
+}

@@ -15,10 +15,10 @@ async fn cmd_verify(args : ArrayView[String]) -> Int32 {
         None => ""
       }
   }
-  let results = try {
+  let (results, why) = try {
     let m = @scenario.parse_manifest(@fs.read_file(path).text())
     let rec = @ledger.parse_recording(@fs.read_file(dir + m.recording).text())
-    @scenario.check(m, rec)
+    (@scenario.check(m, rec), @scenario.diagnoses(m, rec))
   } catch {
     e => {
       println("verify: \{e}")
@@ -26,6 +26,16 @@ async fn cmd_verify(args : ArrayView[String]) -> Int32 {
     }
   }
   println(@scenario.outcome_text(results))
+  let lines = why.filter(d => d.1.length() > 0)
+  if lines.length() > 0 {
+    println("")
+    println("bypass causes:")
+    for d in lines {
+      for l in d.1 {
+        println("  \{d.0}: \{l}")
+      }
+    }
+  }
   if results.iter().any(r => r.1 is Fail(_)) {
     1
   } else {

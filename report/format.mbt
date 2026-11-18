@@ -124,7 +124,9 @@ pub fn flow_table(
       @ledger.base_name(f.process),
       "\{f.proto} \{dest}",
       entry_label(f.entry, core_present),
-      exit_label(f.exit) + (if f.inconsistent { " !" } else { "" }),
+      exit_label(f.exit) +
+      (if f.match_kind == Ambiguous { " ~" } else { "" }) +
+      (if f.inconsistent { " !" } else { "" }),
       f.rule,
     )
     match groups.get(k) {
@@ -171,6 +173,13 @@ pub fn totals_text(t : @ledger.Totals, core_present : Bool) -> String {
     let tenths = (pct * 10.0 + 0.5).to_int64()
     buf.write_string(
       "  exit unknown for \{human_bytes(t.unknown_exit)} (\{tenths / 10L}.\{tenths % 10L}% of traffic)\n",
+    )
+  }
+  if t.ambiguous_exit > 0L && all > 0L {
+    let pct = t.ambiguous_exit.to_double() * 100.0 / all.to_double()
+    let tenths = (pct * 10.0 + 0.5).to_int64()
+    buf.write_string(
+      "  exit ambiguous for \{human_bytes(t.ambiguous_exit)} (\{tenths / 10L}.\{tenths % 10L}% of traffic): core records disagree on the outbound\n",
     )
   }
   if t.core_outbound_up + t.core_outbound_down > 0L {

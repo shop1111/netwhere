@@ -108,3 +108,30 @@ async test "built-in rules classify well-known domains" {
     ),
   )
 }
+
+///|
+async test "recorded bypasses get their causes" {
+  guard scenario_dir() is Some(dir) else { return }
+  let out = StringBuilder()
+  for name in ["system-proxy.manifest.json", "tun.manifest.json"] {
+    let m = @scenario.parse_manifest(@fs.read_file("\{dir}/\{name}").text())
+    let rec = @ledger.parse_recording(
+      @fs.read_file("\{dir}/\{m.recording}").text(),
+    )
+    for d in @scenario.diagnoses(m, rec) {
+      for line in d.1 {
+        out.write_string("\{m.mode} \{d.0}: \{line}\n")
+      }
+    }
+  }
+  inspect(
+    out.to_string(),
+    content=(
+      #|system-proxy curl-noproxy-v4: curl.exe tcp 172.66.0.218:443 no-proxy-config (likely)
+      #|system-proxy curl-noproxy-v6: curl.exe tcp [2606:4700:7::da]:443 no-proxy-config (likely)
+      #|system-proxy git-ls-remote: git-remote-https.exe tcp 20.205.243.166:443 no-proxy-config (likely)
+      #|tun curl-noproxy-v6: curl.exe tcp [2606:4700:7::da]:443 tun-no-ipv6 (certain)
+      #|
+    ),
+  )
+}

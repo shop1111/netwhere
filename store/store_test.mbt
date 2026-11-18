@@ -21,6 +21,7 @@ fn row(minute : Int64, app : String, down : Int64) -> @ledger.UsageRow {
     domain: "speed.cloudflare.com",
     entry: Direct,
     exit: NotProxied,
+    ambiguous: false,
     rule: "",
     up: 1L,
     down,
@@ -48,7 +49,7 @@ async test "usage upserts accumulate; reader sees writer; files persist" {
   assert_true(@fs.exists(path + "-wal"))
   assert_true(@fs.exists(path + "-shm"))
   let again = @store.Db::open_writer(path)
-  assert_eq(again.meta("schema_version"), Some("1"))
+  assert_eq(again.meta("schema_version"), Some("2"))
   again.prune_usage(11L)
   assert_eq(again.usage_between(0L, 100L).length(), 1)
   again.close()
@@ -125,6 +126,9 @@ async test "requests and trace results" {
     up: 950L,
     down: 20_000_000L,
     inconsistent: false,
+    match_kind: Snapshot,
+    match_dt: 0L,
+    bound_off_tun: false,
   }
   w.put_trace("abc", [(11, 10, "curl.exe")], [flow], true)
   // Storing again replaces the earlier result.
@@ -140,6 +144,100 @@ async test "requests and trace results" {
   w.prune_requests(300L)
   assert_eq(w.request("abc"), None)
   assert_eq(w.trace_flows("abc").length(), 0)
+  w.close()
+  cleanup(path)
+}
+
+///|
+/// Runs raw SQL on a database file (to build an old-version ledger).
+fn raw_exec(path : String, sql : String) -> Unit raise {
+  let conn = @sqlite3.Connection::open(path)
+  let mut rest = sql[:]
+  while conn.prepare_next(rest) is Some((stmt, tail)) {
+    while stmt.step() {
+
+    }
+    stmt.finalize()
+    rest = tail
+  }
+  conn.close()
+}
+
+///|
+async test "a version 1 ledger is upgraded in place" {
+  let path = temp_db("v1")
+  raw_exec(
+    path,
+    (
+      #|CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
+      #|INSERT INTO meta VALUES ('schema_version', '1');
+      #|CREATE TABLE trace_flows(
+      #|  request_id TEXT NOT NULL, pid INTEGER NOT NULL, process TEXT NOT NULL,
+      #|  proto TEXT NOT NULL, peer TEXT NOT NULL, domain TEXT NOT NULL,
+      #|  target_port INTEGER NOT NULL, entry TEXT NOT NULL, exit_kind TEXT NOT NULL,
+      #|  node TEXT NOT NULL, rule TEXT NOT NULL, up INTEGER NOT NULL,
+      #|  down INTEGER NOT NULL, inconsistent INTEGER NOT NULL
+      #|);
+      #|INSERT INTO trace_flows VALUES ('old', 1, 'a.exe', 'tcp', '1.2.3.4:443', '', 443, 'bypass', '-', '', '', 1, 2, 0);
+    ),
+  )
+  let w = @store.Db::open_writer(path)
+  assert_eq(w.meta("schema_version"), Some("2"))
+  let old = w.trace_flows("old")
+  assert_eq(old.length(), 1)
+  inspect(old[0].match_kind, content="none")
+  assert_false(old[0].bound_off_tun)
+  // The new table exists.
+  w.add_coverage([
+    {
+      minute: 5L,
+      collector_ticks: 1L,
+      core_ticks: 1L,
+      link_ticks: 1L,
+      etw_lost: 0L,
+      dropped: 0L,
+    },
+  ])
+  w.close()
+  // Opening again does not migrate twice.
+  let again = @store.Db::open_writer(path)
+  assert_eq(again.coverage_between(0L, 10L).length(), 1)
+  again.close()
+  cleanup(path)
+}
+
+///|
+async test "coverage deltas add up per minute; ambiguous exits stored apart" {
+  let path = temp_db("cov")
+  let w = @store.Db::open_writer(path)
+  let c : @report.Coverage = {
+    minute: 7L,
+    collector_ticks: 100L,
+    core_ticks: 100L,
+    link_ticks: 40L,
+    etw_lost: 0L,
+    dropped: 1L,
+  }
+  w.add_coverage([c])
+  w.add_coverage([{ ..c, etw_lost: 2L, dropped: 0L, }, { ..c, minute: 8L, }])
+  let rows = w.coverage_between(0L, 100L)
+  assert_eq(rows.length(), 2)
+  assert_eq(rows[0], {
+    minute: 7L,
+    collector_ticks: 200L,
+    core_ticks: 200L,
+    link_ticks: 80L,
+    etw_lost: 2L,
+    dropped: 1L,
+  })
+  w.prune_usage(8L)
+  assert_eq(w.coverage_between(0L, 100L).length(), 1)
+  w.add_usage(
+    [{ ..row(10L, "Cloudflare", 5L), exit: Node("HK 01"), ambiguous: true, }],
+    true,
+  )
+  let u = w.usage_between(0L, 100L)
+  inspect(u[0].exit_kind + " " + u[0].node, content="ambiguous HK 01")
   w.close()
   cleanup(path)
 }

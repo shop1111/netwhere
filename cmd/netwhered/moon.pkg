@@ -8,6 +8,7 @@ import {
   "shop1111/netwhere/mihomo/client",
   "shop1111/netwhere/netaddr",
   "shop1111/netwhere/mailbox",
+  "shop1111/netwhere/report",
   "shop1111/netwhere/route",
   "shop1111/netwhere/rules",
   "shop1111/netwhere/store",

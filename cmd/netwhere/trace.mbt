@@ -77,7 +77,9 @@ fn trace_table(flows : Array[@store.TraceFlow]) -> String {
       @ledger.base_name(f.process),
       "\{f.proto} \{dest}",
       f.entry,
-      exit_text(f.exit_kind, f.node) + (if f.inconsistent { " !" } else { "" }),
+      exit_text(f.exit_kind, f.node) +
+      (if f.match_kind == "ambiguous" { " ~" } else { "" }) +
+      (if f.inconsistent { " !" } else { "" }),
       f.rule,
     )
     match groups.get(k) {
@@ -130,6 +132,7 @@ async fn trace_with_collector(
   dir : String,
   db : @store.Db,
   cmdline : String,
+  controller : @client.Controller,
 ) -> Int32 {
   let me = @sys.current_pid()
   let id = "trace-\{@sys.now()}-\{me}"
@@ -159,6 +162,7 @@ async fn trace_with_collector(
       return 2
     }
   }
+  let started = @sys.now()
   let pid = @sys.spawn_suspended(cmdline) catch {
     e => {
       println("trace: \{e}")
@@ -197,11 +201,25 @@ async fn trace_with_collector(
         println(trace_table(flows).trim_end())
         println("")
         println("by route: " + route_summary(flows))
-        if flows.iter().any(f => f.inconsistent) {
-          println(
-            "! entered TUN but the proxy core never reported the connection",
-          )
+        let marks = marks_text(flows)
+        if marks != "" {
+          println(marks.trim_end())
         }
+        let why = why_text(flows, diag_context(controller, flows))
+        if why != "" {
+          println("")
+          println(why.trim_end())
+        }
+      }
+      let minute = @store.ticks_per_minute
+      let cov = db.coverage_between(started / minute, @sys.now() / minute + 1L) catch {
+        _ => []
+      }
+      let gaps = trace_gaps_text(cov)
+      if gaps != "" {
+        println("")
+        println("what this trace may have missed:")
+        println(gaps.trim_end())
       }
     }
     (_, Some(d)) => println("not traced: \{d.state} \{d.reason}")
@@ -358,7 +376,7 @@ async fn cmd_trace(args : ArrayView[String]) -> Int32 {
       // --via-collector: use the mailbox even when the collector is
       // degraded (protocol testing without elevation).
       let code = if running && (!degraded || a.has("--via-collector")) {
-        trace_with_collector(dir, db, cmdline)
+        trace_with_collector(dir, db, cmdline, controller)
       } else {
         trace_degraded(cmdline, controller)
       }

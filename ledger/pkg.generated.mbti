@@ -158,6 +158,9 @@ pub(all) struct FlowSummary {
   up : Int64
   down : Int64
   inconsistent : Bool
+  match_kind : MatchKind
+  match_dt : Int64
+  bound_off_tun : Bool
 }
 
 #derive(Eq, @debug.Debug)
@@ -180,6 +183,16 @@ pub(all) struct Listener {
   port : Int32
   pid : Int32
 }
+
+#derive(Eq, Hash, @debug.Debug)
+pub(all) enum MatchKind {
+  Snapshot
+  LogLine
+  Ambiguous
+  NoMatch
+}
+pub fn MatchKind::parse(String) -> Self
+pub impl Show for MatchKind
 
 #derive(Eq, @debug.Debug)
 pub(all) struct NetEvent {
@@ -307,6 +320,7 @@ pub(all) struct RouteFact {
 pub(all) struct Totals {
   by_entry : Map[Entry, (Int64, Int64)]
   unknown_exit : Int64
+  ambiguous_exit : Int64
   core_outbound_up : Int64
   core_outbound_down : Int64
   dropped_mirror : Int64
@@ -328,6 +342,7 @@ pub(all) struct UsageRow {
   domain : String
   entry : Entry
   exit : Exit
+  ambiguous : Bool
   rule : String
   up : Int64
   down : Int64
