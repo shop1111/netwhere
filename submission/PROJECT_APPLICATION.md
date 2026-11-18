@@ -49,7 +49,7 @@ netwhere 看得到"绕过了"，看不到程序内部为什么这么决定，所
 
 事实来源全部在普通权限下读取：命令的环境变量、当前用户的系统代理设置（注册表）、git 全局配置、Mihomo `/configs` 与网卡表、`GetBestRoute2`。规则在 `diagnose` 包里，是纯计算代码，每条规则有单元测试。
 
-**案例**（来自仓库里两份真实录制，FlClash，2026-11-13；`moon test` 对诊断结果做快照断言，`netwhere verify` 可复现）
+**案例**（来自仓库里三份真实录制，FlClash，2026-11-13 与 2026-11-18；`moon test` 对诊断结果做快照断言，`netwhere verify` 可复现）
 
 1. *git 没走代理（系统代理模式）。* `git ls-remote https://github.com/git/git HEAD`：
    ```
@@ -68,7 +68,24 @@ netwhere 看得到"绕过了"，看不到程序内部为什么这么决定，所
        - the TUN adapter has no global IPv6 address
    ```
    读法：这 4.8 MB 没有经过内核。处理：在客户端里开启 TUN 的 IPv6，或关掉系统 IPv6。同一份录制里，同样的命令加 `-4` 走了 TUN、出口 Node A。
-3. *系统代理下的 UDP、绑定物理网卡的 socket。* 已加入录制脚本（`nslookup-udp`、`curl-bound-physical`），对应规则 `udp-not-proxied`、`bound-off-tun` 有单元测试。后者以前会被误记为"经 TUN"：路由表指向 TUN，但程序绑了物理网卡。现在入口判定先看本地地址，这类连接记为绕过。
+3. *TUN 开着，绑了物理网卡的程序连不上。* `curl -4 --noproxy * --interface <物理网卡地址> https://speed.cloudflare.com/...`，curl 超时退出（2026-11-18 录制）：
+   ```
+   curl.exe  tcp speed.cloudflare.com:443  bypass  -  0 B  0 B
+   bound-off-tun (certain): the program bound its socket to another adapter, so the TUN route did not apply
+       - route to 198.18.0.15 pointed at the TUN adapter
+       - but the connection's local address is outside the TUN network
+       - 198.18.0.15 is a fake-ip address (198.18.0.0/15) that only the core can answer: outside TUN the connection cannot succeed
+   ```
+   读法：fake-ip 模式下系统 DNS 返回的是假地址，程序却把 socket 绑在物理网卡上，包没进 TUN，假地址在外网没人应答，所以超时。处理：去掉程序的网卡绑定，或给它单独配代理。这类连接以前会被误记为"经 TUN"（路由表确实指向 TUN），现在入口判定先看本地地址。
+4. *系统代理下的 UDP。* `nslookup example.com 1.1.1.1`（2026-11-18 录制）：
+   ```
+   nslookup.exe  udp 1.1.1.1:53  bypass  -  178 B  213 B
+   udp-not-proxied (certain): the system proxy and proxy variables only carry TCP; UDP (QUIC, DNS) goes direct unless TUN is on
+       - udp 1.1.1.1:53 is UDP
+       - TUN: off
+   ```
+   同一条命令在 TUN 模式下进了 TUN；出口显示为 `?`，因为 DNS 被内核劫持后直接应答，内核不产生连接记录。引擎对 53 端口不标 `!`，避免误报。
+5. *依据不够时不下结论。* 同样是 `curl --noproxy *`，在没设代理变量的终端里诊断为 `no-proxy-config`；在设了 `HTTPS_PROXY` 的终端里诊断为 `undetermined`："a proxy variable is set, yet the program connected directly"。真正的原因是命令行参数 `--noproxy *`，netwhere 看不到参数，所以只列事实，不猜原因。
 
 **歧义、缺失和未知怎么处理**
 
@@ -88,7 +105,7 @@ netwhere 看得到"绕过了"，看不到程序内部为什么这么决定，所
 | 层 | 内容 | 依据 | 已验证 / 已知误差 |
 |---|---|---|---|
 | 测量 | 每个 socket 的字节数、所属进程 | ETW Kernel-Network，进程取事件里的 `PID` 字段 | 定长解码与 TDH 逐字段对照 103,671 个字段无差异；20 MB 下载与 Mihomo 计数差约 1 KB；含 TLS、HTTP 开销 |
-| 判定 | 入口 | 首个事件时的本地地址、监听表、路由 | 系统代理、TUN 两种模式各 6 个录制场景全部符合预期；建立后的路由变化不追踪 |
+| 判定 | 入口 | 首个事件时的本地地址、监听表、路由 | 三份录制共 21 个场景全部符合预期；建立后的路由变化不追踪 |
 | 关联 | 出口 | 源端口 + 进程名 + 5 秒窗口 | 每条连接标关联方式；未知、歧义单列，不计入已知节点 |
 | 推断 | 绕过原因 | 上面的规则表 | 只给候选和依据；`likely` 取决于程序内部行为 |
 | 估算 | 套餐消耗 | 节点流量 × 倍率 | 给上下限；不含代理协议开销；倍率来自配置或节点名，可能与机场实际计费不同 |
@@ -106,11 +123,11 @@ netwhere 看得到"绕过了"，看不到程序内部为什么这么决定，所
 
 **当前进展与验证**
 
-采集进程和命令行已完成，Windows CI 跑 fmt、check、test，共 106 个测试。在 FlClash（Mihomo）上，系统代理和 TUN 两种模式各录制 6 个场景，全部符合预期，脱敏后放进 `testdata/scenarios/` 由 `moon test` 回放，诊断结果也有快照断言。已安装的采集进程连续运行 2 小时：私有内存 6.6–8.6 MB，CPU 平均 0.52% 单核，31 万个事件零丢失。
+采集进程和命令行已完成，Windows CI 跑 fmt、check、test，共 106 个测试。在 FlClash（Mihomo）上录了三份：系统代理模式两份（终端有无代理变量各一份），TUN 模式一份，共 21 个场景，全部符合预期（其中绑定物理网卡那个命令按预期超时，只核对诊断）。录制脱敏后放进 `testdata/scenarios/` 由 `moon test` 回放，诊断结果也有快照断言。三次录制 ETW 丢事件均为 0，定长解码与 TDH 逐字段对照无差异。已安装的采集进程连续运行 2 小时：私有内存 6.6–8.6 MB，CPU 平均 0.52% 单核，31 万个事件零丢失。
 
 本轮（0.2.0）根据初审意见新增：绕过原因诊断、出口关联方式与歧义标记、绑定物理网卡的识别、按分钟的覆盖记录、套餐估算区间；账本 schema 升到 2，旧账本原地升级。0.1.0 已发布到 Mooncakes，全新的消费工程 `moon add` 后调用 `netaddr`、`rules` 通过。
 
-还没做：24 小时连续运行；新增两个场景的提权实机录制。第二步是托盘和 WebView2 界面（报表、明细、待归类、规则），按需启动，关闭后不常驻。
+还没做：24 小时连续运行。第二步是托盘和 WebView2 界面（报表、明细、待归类、规则），按需启动，关闭后不常驻。
 
 **参考与许可**
 

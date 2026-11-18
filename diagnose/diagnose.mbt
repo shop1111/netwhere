@@ -91,6 +91,11 @@ pub fn Context::default() -> Context {
 }
 
 ///|
+/// Benchmarking range (RFC 2544) that Mihomo hands out as fake-ip by
+/// default; nothing on the internet answers there.
+let fake_ip_range : @netaddr.Cidr = @netaddr.Cidr::parse("198.18.0.0/15").unwrap()
+
+///|
 let proxy_vars : Array[String] = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"]
 
 ///|
@@ -298,14 +303,20 @@ pub fn diagnose(
   let causes : Array[Cause] = []
   let dest = dest_text(f)
   if f.bound_off_tun {
+    let evidence = [
+      "route to \{f.peer} pointed at the TUN adapter",
+      "but the connection's local address is outside the TUN network",
+    ]
+    if fake_ip_range.contains(f.peer) {
+      evidence.push(
+        "\{f.peer} is a fake-ip address (198.18.0.0/15) that only the core can answer: outside TUN the connection cannot succeed",
+      )
+    }
     causes.push({
       code: "bound-off-tun",
       certainty: Certain,
       summary: "the program bound its socket to another adapter, so the TUN route did not apply",
-      evidence: [
-        "route to \{f.peer} pointed at the TUN adapter",
-        "but the connection's local address is outside the TUN network",
-      ],
+      evidence,
     })
   } else if ctx.tun_enabled {
     if !f.peer.is_v4() && !ctx.tun_has_v6 {

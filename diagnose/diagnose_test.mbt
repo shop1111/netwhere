@@ -86,6 +86,16 @@ test "bound socket wins over everything else" {
     codes(@diagnose.diagnose(flow(bound_off_tun=true), [], tun)),
     content="bound-off-tun/certain",
   )
+  // A fake-ip destination cannot be reached outside TUN at all.
+  let fake = @diagnose.diagnose(
+    flow(bound_off_tun=true, peer="198.18.0.15"),
+    [],
+    tun,
+  )
+  assert_eq(fake[0].evidence.length(), 3)
+  assert_true(fake[0].evidence[2].contains("fake-ip"))
+  let real = @diagnose.diagnose(flow(bound_off_tun=true), [], tun)
+  assert_eq(real[0].evidence.length(), 2)
 }
 
 ///|

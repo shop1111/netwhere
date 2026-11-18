@@ -202,9 +202,17 @@ moon run cmd/rules-import -- $env:TEMP\dlc\data --apps rules\apps.txt --out rule
 - 入口判定先看本地地址，识别绑定了物理网卡的 socket。
 - 按分钟的覆盖记录（采集进程运行时间、Mihomo 连接状态、丢事件），`report` 和 `trace` 据此列出缺口；套餐估算给出区间。
 - 账本 schema 升到 2，旧账本原地升级（有测试）。
-- 录制脚本新增 `nslookup-udp`、`curl-bound-physical` 两个场景。
+- 录制脚本新增 `nslookup-udp`、`curl-bound-physical` 两个场景，2026-11-18 在提权实机上重新录制了两种模式（终端设了 `HTTPS_PROXY`），全部符合预期，ETW 丢事件 0、定长解码对照无差异。11-13 那份系统代理录制（终端没设代理变量）改名为 `system-proxy-noenv` 保留。三份录制的诊断结果：
 
-**还没做：** 24 小时连续运行；0.2.0 新场景的提权实机录制。
+  | 录制 | 场景 | 诊断 |
+  |---|---|---|
+  | system-proxy-noenv | `git ls-remote`、`curl --noproxy *` | `no-proxy-config` (likely) |
+  | system-proxy | `curl --noproxy *` | `undetermined`：终端设了 `HTTPS_PROXY`，看不到 `--noproxy` 参数 |
+  | system-proxy | `nslookup example.com 1.1.1.1` | `udp-not-proxied` (certain) |
+  | tun | `curl -6 --noproxy *` | `tun-no-ipv6` (certain) |
+  | tun | `curl --interface <物理网卡地址>` | `bound-off-tun` (certain)，目的地址是 fake-ip，命令超时 |
+
+**还没做：** 24 小时连续运行。
 
 **计划中：** 托盘和图形界面。
 

@@ -319,8 +319,19 @@ moonbit_string_t nw_reg_user_value(moonbit_string_t subkey, moonbit_string_t nam
     if (RegGetValueW(HKEY_CURRENT_USER, k, n, RRF_RT_REG_SZ | RRF_RT_REG_EXPAND_SZ | RRF_RT_REG_DWORD | RRF_NOEXPAND,
                      &type, buf, &size) == ERROR_SUCCESS) {
       if (type == REG_DWORD && size >= 4) {
+        // Decimal by hand: wsprintfW would pull in user32.lib.
         WCHAR num[16];
-        int len = wsprintfW(num, L"%lu", *(DWORD *)buf);
+        int len = 0;
+        DWORD v = *(DWORD *)buf;
+        do {
+          num[len++] = (WCHAR)(L'0' + v % 10);
+          v /= 10;
+        } while (v > 0);
+        for (int i = 0; i < len / 2; i++) {
+          WCHAR t = num[i];
+          num[i] = num[len - 1 - i];
+          num[len - 1 - i] = t;
+        }
         out = wide_to_mbt(num, len);
       } else if (type == REG_SZ || type == REG_EXPAND_SZ) {
         WCHAR *s = (WCHAR *)buf;
