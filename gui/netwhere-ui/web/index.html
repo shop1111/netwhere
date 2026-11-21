@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:">
+<title>netwhere</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<aside class="side">
+  <div class="brand"><svg class="brand-mark" viewBox="0 0 20 20" aria-hidden="true"><rect x="0.8" y="0.8" width="18.4" height="18.4" rx="4.4"/><path d="M5.4 14.6L12.4 7.6"/><path class="head" d="M15 5H8L15 12Z"/></svg>netwhere</div>
+  <nav id="nav">
+    <a href="#overview" data-page="overview">概览</a>
+    <a href="#detail" data-page="detail">明细</a>
+    <a href="#nodes" data-page="nodes">节点与套餐</a>
+    <a href="#unknown" data-page="unknown">待归类</a>
+    <a href="#rules" data-page="rules">规则</a>
+    <a href="#settings" data-page="settings">设置</a>
+  </nav>
+  <div class="side-foot">
+    <div id="state-pill" class="pill" title="采集进程状态"><span class="dot"></span><span class="pill-text">…</span></div>
+    <button id="state-action" class="link small" hidden></button>
+  </div>
+</aside>
+<main>
+  <header class="top">
+    <h1 id="title">概览</h1>
+    <div id="period" class="seg" role="group" aria-label="时间范围">
+      <button data-period="today" class="on">今天</button>
+      <button data-period="24h">24 小时</button>
+      <button data-period="7d">7 天</button>
+      <button data-period="30d">30 天</button>
+    </div>
+  </header>
+  <div id="banner" class="banner" hidden></div>
+  <section id="page"></section>
+</main>
+<div id="tip" class="tip" hidden></div>
+<div id="toast" class="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

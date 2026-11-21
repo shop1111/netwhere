@@ -44,6 +44,30 @@ fn Out::run(self : Out, c : @installer.Command) -> Bool {
 }
 
 ///|
+/// Ends the tray and UI windows running from bin\ (so their files can be
+/// replaced or removed). Returns how many were ended.
+fn end_gui_processes(dir : String) -> Int32 {
+  let wanted = [
+    @control.installed_tray(dir).to_lower(),
+    @control.installed_ui(dir).to_lower(),
+  ]
+  let mut n = 0
+  for p in @sys.process_list() {
+    let exe = p.exe.to_lower()
+    if exe == "netwhere-tray.exe" || exe == "netwhere-ui.exe" {
+      match @sys.image_path(p.pid) {
+        Some(path) if wanted.contains(path.to_lower()) =>
+          if @sys.terminate_process(p.pid) {
+            n += 1
+          }
+        _ => ()
+      }
+    }
+  }
+  n
+}
+
+///|
 async fn copy_file(from : String, to : String) -> Unit {
   let data = @fs.read_file(from).binary()
   let tmp = to + ".new"
@@ -55,7 +79,9 @@ async fn copy_file(from : String, to : String) -> Unit {
 async fn cmd_install(args : ArrayView[String]) -> Int32 {
   let a = @cli.parse(
     args,
-    with_value=["--owner-sid", "--data-dir", "--source", "--rules"],
+    with_value=[
+      "--owner-sid", "--data-dir", "--source", "--rules", "--tray", "--ui",
+    ],
     switches=[],
   ) catch {
     e => {
@@ -88,7 +114,11 @@ async fn cmd_install(args : ArrayView[String]) -> Int32 {
   let icacls = system32() + "\\icacls.exe"
   out.say("installing netwhere into \{dir}")
   // A running collector holds the binary open: stop the task first.
+  // (`netwhere install` has normally asked it to stop already.)
   ignore(@sys.run_wait(schtasks, ["/End", "/TN", @installer.task_name]))
+  if end_gui_processes(dir) > 0 {
+    out.say("  closed the running tray / window")
+  }
   try {
     @fs.mkdir(dir + "\\bin", recursive=true, allow_exist=true)
     @fs.mkdir(dir + "\\requests", recursive=true, allow_exist=true)
@@ -114,6 +144,20 @@ async fn cmd_install(args : ArrayView[String]) -> Int32 {
       }
     }
     out.say("  collector: \{exe}")
+    for
+      gui in [
+        ("--tray", @control.installed_tray(dir), "tray"),
+        ("--ui", @control.installed_ui(dir), "window"),
+      ] {
+      let (flag, target, what) = gui
+      match a.options.get(flag) {
+        Some(from) => {
+          copy_file(from, target)
+          out.say("  \{what}: \{target}")
+        }
+        None => out.say("  \{what}: not found next to netwhere.exe, skipped")
+      }
+    }
     let rules = a.get("--rules", source + "\\builtin-rules.txt")
     if @fs.exists(rules) {
       copy_file(rules, dir + "\\builtin-rules.txt")
@@ -135,7 +179,7 @@ async fn cmd_install(args : ArrayView[String]) -> Int32 {
       @installer.utf16le_bom(@installer.task_xml(sid, exe)),
     )
     out.say(
-      "  scheduled task \"\{@installer.task_name}\": at logon, highest privileges",
+      "  scheduled task \"\{@installer.task_name}\": on demand, highest privileges (no UAC prompt to start it)",
     )
     for c in @installer.register_commands(schtasks, xml_path) {
       if !out.run(c) {
@@ -169,6 +213,9 @@ async fn cmd_uninstall(args : ArrayView[String]) -> Int32 {
   let out : Out = { buf: StringBuilder(), }
   for c in @installer.unregister_commands(schtasks) {
     ignore(out.run(c))
+  }
+  if end_gui_processes(dir) > 0 {
+    out.say("closed the running tray / window")
   }
   // A collector killed by /End leaves its ETW session behind.
   let session = session_name(dir)

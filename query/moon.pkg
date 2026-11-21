@@ -1,0 +1,15 @@
+import {
+  "shop1111/netwhere/config",
+  "shop1111/netwhere/report",
+  "shop1111/netwhere/rules",
+  "shop1111/netwhere/store",
+}
+
+import {
+  "shop1111/netwhere/config",
+  "shop1111/netwhere/store",
+} for "test"
+
+supported_targets = "native"
+
+warnings = "-79"

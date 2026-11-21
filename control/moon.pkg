@@ -1,0 +1,11 @@
+import {
+  "shop1111/netwhere/config",
+  "shop1111/netwhere/mailbox",
+  "shop1111/netwhere/store",
+  "shop1111/netwhere/sys",
+  "moonbitlang/core/encoding/utf8",
+}
+
+supported_targets = "native"
+
+warnings = "-79"

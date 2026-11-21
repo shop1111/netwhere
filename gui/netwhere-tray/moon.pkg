@@ -1,0 +1,26 @@
+import {
+  "shop1111/netwhere/control",
+  "shop1111/netwhere-gui/icon",
+  "shop1111/netwhere/mailbox",
+  "shop1111/netwhere/query",
+  "shop1111/netwhere/report",
+  "shop1111/netwhere/store",
+  "shop1111/netwhere/sys",
+  "justjavac/tray",
+  "moonbitlang/core/env",
+}
+
+supported_targets = "native"
+
+options(
+  "native-stub": [ "host.c" ],
+  link: {
+    "native": {
+      "cc-link-flags": "user32.lib /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup",
+    },
+  },
+)
+
+pkgtype(kind: "executable")
+
+warnings = "-79"

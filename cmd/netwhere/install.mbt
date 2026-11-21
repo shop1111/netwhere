@@ -19,7 +19,10 @@ async fn find_rules() -> String? {
     return Some(next)
   }
   let mut dir = own_dir()
-  for _ in 0..<8 {
+  // A moon workspace build puts this program in
+  // _build\native\release\build\shop1111\netwhere\cmd\netwhere, nine levels
+  // below the source tree.
+  for _ in 0..<12 {
     let candidate = dir + "\\rules\\builtin.txt"
     if @fs.exists(candidate) {
       return Some(@fs.realpath(candidate))
@@ -33,26 +36,31 @@ async fn find_rules() -> String? {
 }
 
 ///|
-async fn elevate(dir : String, verb : String, extra : Array[String]) -> Int32 {
-  // Release packages ship both programs side by side; in a moon build tree
-  // each executable has its own directory.
+/// One of the other programs: next to this one (release package), or in
+/// its own directory in a moon build tree (build\shop1111\netwhere\cmd\X
+/// for this module, build\shop1111\netwhere-gui\X for the gui module).
+async fn find_program(name : String) -> String? {
   let candidates = [
-    own_dir() + "\\netwhered.exe",
-    own_dir() + "\\..\\netwhered\\netwhered.exe",
+    own_dir() + "\\" + name + ".exe",
+    own_dir() + "\\..\\" + name + "\\" + name + ".exe",
+    own_dir() + "\\..\\..\\..\\netwhere-gui\\" + name + "\\" + name + ".exe",
   ]
-  let mut found = ""
   for c in candidates {
-    if found == "" && @fs.exists(c) {
-      found = c
+    if @fs.exists(c) {
+      return Some(@fs.realpath(c))
     }
   }
-  if found == "" {
+  None
+}
+
+///|
+async fn elevate(dir : String, verb : String, extra : Array[String]) -> Int32 {
+  guard find_program("netwhered") is Some(exe) else {
     println(
-      "\{verb}: netwhered.exe not found next to netwhere.exe (\{candidates[0]})",
+      "\{verb}: netwhered.exe not found next to netwhere.exe (\{own_dir()})",
     )
     return 2
   }
-  let exe = @fs.realpath(found)
   let params = @sys.join_command_line([verb, "--data-dir", dir, ..extra][:])
   println("\{verb}: approve the UAC prompt to continue")
   let code = match @sys.run_elevated(exe, params) {
@@ -77,7 +85,9 @@ async fn elevate(dir : String, verb : String, extra : Array[String]) -> Int32 {
 
 ///|
 async fn cmd_install(args : ArrayView[String]) -> Int32 {
-  let a = @cli.parse(args, with_value=["--data-dir"], switches=[]) catch {
+  let a = @cli.parse(args, with_value=["--data-dir"], switches=[
+    "--no-autostart",
+  ]) catch {
     e => {
       println("install: \{e}")
       return 2
@@ -92,7 +102,27 @@ async fn cmd_install(args : ArrayView[String]) -> Int32 {
     }
     None => ()
   }
+  for gui in [("netwhere-tray", "--tray"), ("netwhere-ui", "--ui")] {
+    if find_program(gui.0) is Some(path) {
+      extra.push(gui.1)
+      extra.push(path)
+    }
+  }
+  // Stop a running collector cleanly first, so its ETW session goes too.
+  ignore(@control.stop_and_wait(dir))
   let code = elevate(dir, "install", extra)
+  let tray = @control.installed_tray(dir)
+  if code == 0 && @fs.exists(tray) {
+    if a.has("--no-autostart") {
+      ignore(@control.set_autostart(None))
+      println("start at login: off (turn on with `netwhere autostart on`)")
+    } else if @control.set_autostart(Some(tray)) == 0 {
+      println(
+        "start at login: on (tray icon; turn off in its menu or with `netwhere autostart off`)",
+      )
+    }
+    ignore(@sys.spawn_detached(tray, []))
+  }
   if code == 0 {
     // Give the task a moment to start, then show what it reports.
     @async.sleep(4000)
@@ -110,13 +140,11 @@ async fn cmd_uninstall(args : ArrayView[String]) -> Int32 {
       return 2
     }
   }
-  elevate(
-    data_dir_of(a),
-    "uninstall",
-    if a.has("--purge") {
-      ["--purge"]
-    } else {
-      []
-    },
-  )
+  let dir = data_dir_of(a)
+  ignore(@control.stop_and_wait(dir))
+  if @control.autostart_command() is Some(_) {
+    ignore(@control.set_autostart(None))
+    println("start at login: removed")
+  }
+  elevate(dir, "uninstall", if a.has("--purge") { ["--purge"] } else { [] })
 }

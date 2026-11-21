@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere-gui/icon"
+
+// Values
+pub fn icon_file(String) -> Bytes
+
+pub let icon_sizes : Array[Int32]
+
+pub fn user_dir() -> String
+
+pub fn write_icons() -> Map[String, String]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

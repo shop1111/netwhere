@@ -16,6 +16,10 @@ test "task definition" {
     ),
   )
   assert_true(xml.contains("<Arguments>run --detach</Arguments>"))
+  // On demand only: start at login is the tray's Run value, which the user
+  // switches without elevation.
+  assert_false(xml.contains("Trigger"))
+  assert_true(xml.contains("<AllowStartOnDemand>true</AllowStartOnDemand>"))
 }
 
 ///|

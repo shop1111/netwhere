@@ -5,13 +5,17 @@
 - 数据来自 ETW（网络、DNS、进程事件），短连接也不漏；只观测，不拦截、不抓包。
 - 本机运行 Mihomo 或 sing-box 时，通过 Clash API 补上节点、域名和规则。
 - 每个结论标明可信程度（见[可信边界](#可信边界)）。
-- MoonBit（native）编写，C 只用于调用 Windows API。
+- 托盘图标和图形界面：今日流量、趋势、按应用 / 域名 / 节点逐级展开、待归类、规则和设置。
+- MoonBit（native）编写，C 只用于调用 Windows API；界面是手写的 HTML/CSS/JS，跑在 WebView2 里。
 
 ## 使用
 
 ```powershell
-netwhere install                 # 注册后台采集进程（弹一次 UAC），登录时启动
+netwhere install                 # 安装采集进程、托盘和界面（弹一次 UAC），并打开"登录时启动"
 netwhere status                  # 采集进程、代理内核、运行模式
+netwhere start | stop            # 启动 / 停止采集（不弹 UAC）
+netwhere pause | resume          # 暂停 / 恢复记账，采集进程保持运行
+netwhere autostart on | off      # 登录时启动托盘（托盘再启动采集）
 netwhere trace -- git push       # 在当前终端运行命令，报告其进程树的流量走向
 netwhere report --7d --by node   # 按节点汇总，估算套餐消耗
 netwhere unknown                 # 未归类的流量；用 classify 归类
@@ -32,6 +36,18 @@ why it bypassed the core (candidate causes; "likely" depends on what the program
 ```
 
 出口列标记：`?` 进了内核但没关联到记录；`~` 多条记录出口不一致；`!` 进了 TUN 却没有内核记录。
+
+**托盘和界面**：托盘显示今日流量和采集状态，菜单里可以打开界面、暂停或恢复、切换"登录时启动"、退出。像普通应用一样：打开托盘就开始采集，从托盘退出就停止采集；"登录时启动"关掉后，登录时什么都不运行。界面窗口只在打开时运行，关掉后连同 WebView2 进程一起退出。
+
+| 页面 | 内容 |
+|---|---|
+| 概览 | 总流量、套餐估算区间、五类走向（经节点 / 内核直连 / 出口未知 / 绕过 / 局域网）、趋势图、应用排行、覆盖缺口 |
+| 明细 | 按应用、域名、进程、节点、入口分组，点一行继续细分 |
+| 节点与套餐 | 各节点流量、倍率（可改）、套餐消耗 |
+| 待归类 | 未归类的进程和域名，一键归类为规则 |
+| 规则 / 设置 | 用户规则；采集状态与启停、登录时启动、Clash API 地址和密钥、保留天数、导出 CSV |
+
+界面和命令行用同一套查询代码（`query` 包），数字一致。
 
 ## 统计口径
 
@@ -81,14 +97,16 @@ why it bypassed the core (candidate causes; "likely" depends on what the program
 ## 架构
 
 ```
-netwhered.exe（管理员，计划任务启动）
+netwhered.exe（管理员，按需运行的计划任务）
   ETW → 记账引擎 → %ProgramData%\netwhere\ledger.db（每 10 秒）
   Clash API /connections + /logs（WebSocket）
-        ▲ 读 ledger.db          │ 写 requests\*.json、config.json
-netwhere.exe（普通权限）
+        ▲ 读 ledger.db          │ 写 requests\*.json（trace / 暂停 / 恢复 / 停止）、config.json
+netwhere.exe       命令行（普通权限）
+netwhere-tray.exe  托盘（普通权限，常驻；HKCU\...\Run 里的"登录时启动"）
+netwhere-ui.exe    界面（普通权限，打开时才运行；页面走 netwhere:// 自定义协议，不开端口）
 ```
 
-只有采集进程提权；用户能写的只有请求 JSON 和 `config.json`，由 MoonBit 代码逐项校验；账本对用户只读。`trace` 的命令先挂起启动，采集进程确认后才恢复。没装采集进程时降级，只用 DNS 和内核数据。
+只有采集进程提权；用户能写的只有请求 JSON 和 `config.json`，由 MoonBit 代码逐项校验；账本对用户只读。计划任务属于安装用户、不带触发器，所以普通权限的 `schtasks /Run` 就能启动它，不弹 UAC；"登录时启动"是托盘在 HKCU 下的 Run 值，开关也不用提权。停止走信箱请求，采集进程自己退出并清理 ETW 会话（返回 0，任务不会重启）。`trace` 的命令先挂起启动，采集进程确认后才恢复。没装采集进程时降级，只用 DNS 和内核数据。
 
 ## 包
 
@@ -97,6 +115,9 @@ netwhere.exe（普通权限）
 | `netaddr`、`ledger`、`mihomo`、`rules`、`diagnose` | 全后端 | 地址规范化；记账引擎与回放；Clash API 解码（Mihomo、sing-box）；分类规则；绕过诊断 |
 | `mailbox`、`config`、`report`、`installer`、`scenario` | 全后端 | 信箱协议、配置、输出、安装计划、场景校验 |
 | `etw`、`route`、`sys`、`store`、`mihomo/client` | native | ETW、IP Helper、进程、SQLite、WebSocket |
+| `control`、`query` | native | 采集进程的启停与状态、自启开关、配置读写；报表聚合（命令行和界面共用） |
+
+托盘和界面在 workspace 里的另一个模块 `gui/`（`shop1111/netwhere-gui`，不发布），依赖 [`justjavac/tray`](https://mooncakes.io/docs/justjavac/tray) 和 [`Nanaloveyuki/moonview`](https://mooncakes.io/docs/Nanaloveyuki/moonview)；发布到 Mooncakes 的库本身不带这些依赖。
 
 Mooncakes：[`shop1111/netwhere`](https://mooncakes.io/docs/shop1111/netwhere)。
 
@@ -107,7 +128,11 @@ moon test --target native
 moon build --target native --release
 ```
 
-需要 moonc ≥ 0.10.20 和 MSVC。录制回放样例（每次弹一次 UAC，命令在当前终端环境里运行）：
+需要 moonc ≥ 0.10.20 和 MSVC；构建界面还需要 Node.js（moonview 的 prebuild 从 nuget.org 下载并校验 WebView2 SDK），并且 PATH 里 Windows 自带的 `tar.exe` 要排在 Git 的 tar 前面。
+
+改了 `gui/netwhere-ui/web/` 下的页面后运行 `python -I scripts\embed_web.py` 重新内嵌；调试时 `netwhere-ui.exe --web gui\netwhere-ui\web` 直接读这个目录，不用重新编译。
+
+录制回放样例（每次弹一次 UAC，命令在当前终端环境里运行）：
 
 ```powershell
 .\scripts\record-scenarios.ps1 -Mode system-proxy   # 或 tun；sing-box 用 -Mode singbox -Controller -ProxyPort
@@ -119,10 +144,11 @@ python -I scripts\sanitize_recording.py testdata\raw\tun.manifest.json testdata\
 
 ## 状态
 
-- CI 跑 fmt、check、test（112 个测试）。
+- CI 跑 fmt、check、test（120 个测试），并检查内嵌页面是否最新。
 - 实机录制（脱敏后在 `testdata/scenarios/`，`moon test` 回放）：FlClash 系统代理两份、TUN 一份，sing-box 1.14.4 代理端口一份，ETW 丢事件均为 0。
 - 常驻开销（2 小时）：私有内存 6.6–8.6 MB，CPU 平均 0.52% 单核，31 万事件零丢失。
-- 还没做：24 小时连续运行、sing-box TUN 模式实录、托盘和图形界面。
+- 托盘常驻私有内存约 2 MB；界面打开时整组进程（窗口加 WebView2）私有内存约 170 MB，关闭后 0.2 秒内全部退出。
+- 还没做：24 小时连续运行、sing-box TUN 模式实录。
 
 ## 已知限制
 

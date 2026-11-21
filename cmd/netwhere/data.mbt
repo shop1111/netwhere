@@ -33,41 +33,12 @@ async fn load_config(dir : String) -> @config.Config {
 }
 
 ///|
-/// Writes config.json atomically (temporary file, then rename).
-async fn save_config(dir : String, c : @config.Config) -> Unit {
-  let path = dir + "\\config.json"
-  let tmp = path + ".tmp"
-  @fs.write_file(tmp, c.to_text())
-  @fs.rename(tmp, path, replace=true)
-}
-
-///|
-/// False only when the process list is readable and has no netwhered
-/// process with this pid; any doubt counts as alive.
-fn collector_alive(pid : Int32) -> Bool {
-  let procs = @sys.process_list()
-  procs.length() == 0 ||
-  procs.iter().any(p => p.pid == pid && p.exe.to_lower() == "netwhered.exe")
-}
-
-///|
-/// Collector state from the heartbeat: (running, description).
-fn collector_state(h : @store.Heartbeat?, now : Int64) -> (Bool, String) {
-  match h {
-    None => (false, "never started")
-    Some(h) => {
-      let age = (now - h.updated) / 10_000_000L
-      if h.state == "stopped" {
-        (false, "stopped")
-      } else if !collector_alive(h.pid) {
-        // Killed (e.g. the task was ended) before it could say "stopped".
-        (false, "not running (process has exited)")
-      } else if age > 15L {
-        (false, "not running (last heartbeat \{age} s ago)")
-      } else {
-        (true, h.state)
-      }
-    }
+/// Writes config.json in place (see control.save_config: the user may not
+/// create a temporary file next to it).
+fn save_config(dir : String, c : @config.Config) -> Unit raise {
+  match @control.save_config(dir, c) {
+    Ok(_) => ()
+    Err(e) => fail(e)
   }
 }
 

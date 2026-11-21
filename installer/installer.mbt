@@ -29,8 +29,12 @@ fn xml_escape(s : String) -> String {
 }
 
 ///|
-/// Task Scheduler definition: at the user's logon, with highest privileges,
-/// no time limit, restarted on failure.
+/// Task Scheduler definition: started on demand only (no trigger), with
+/// highest privileges, no time limit, restarted on failure. The user's own
+/// unelevated processes may run and end it without a UAC prompt, so start
+/// at login is the tray's HKCU Run entry (`run_key_*`), which the user turns
+/// on and off without elevation. A collector that exits after a stop
+/// request returns 0 and is not restarted.
 pub fn task_xml(sid : String, exe : String) -> String {
   let sid = xml_escape(sid)
   let exe = xml_escape(exe)
@@ -40,12 +44,6 @@ pub fn task_xml(sid : String, exe : String) -> String {
     $|  <RegistrationInfo>
     $|    <Description>netwhere collector: records where each program's traffic goes</Description>
     $|  </RegistrationInfo>
-    $|  <Triggers>
-    $|    <LogonTrigger>
-    $|      <Enabled>true</Enabled>
-    $|      <UserId>\{sid}</UserId>
-    $|    </LogonTrigger>
-    $|  </Triggers>
     $|  <Principals>
     $|    <Principal id="Author">
     $|      <UserId>\{sid}</UserId>

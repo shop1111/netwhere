@@ -1,5 +1,6 @@
 import {
   "shop1111/netwhere/config",
+  "shop1111/netwhere/control",
   "shop1111/netwhere/diagnose",
   "shop1111/netwhere/internal/cli",
   "shop1111/netwhere/ledger",
@@ -7,6 +8,7 @@ import {
   "shop1111/netwhere/mihomo",
   "shop1111/netwhere/mihomo/client",
   "shop1111/netwhere/netaddr",
+  "shop1111/netwhere/query",
   "shop1111/netwhere/report",
   "shop1111/netwhere/route",
   "shop1111/netwhere/rules",

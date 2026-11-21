@@ -24,6 +24,8 @@ priv struct Live {
   /// Active traces: request id -> pid whose subtree is collected.
   traces : Map[String, Int32]
   mut paused : Bool
+  /// A stop request arrived: leave the main loop and shut down cleanly.
+  mut stopping : Bool
   mut core_link : String
   mut last_error : String
   degraded : Bool
@@ -247,6 +249,7 @@ fn Live::request_row(self : Live, id : String) -> @store.RequestRow? {
       Trace => "trace"
       Pause => "pause"
       Resume => "resume"
+      Stop => "stop"
     },
     client_pid: r.client_pid,
     root_pid: r.root_pid,
@@ -300,6 +303,10 @@ fn Live::apply_effects(self : Live, fx : Array[@mailbox.Effect]) -> Unit {
       Resume => {
         self.paused = false
         self.note("resumed")
+      }
+      Stop => {
+        self.stopping = true
+        self.note("stop requested")
       }
       Changed(_) => ()
     }
@@ -542,7 +549,12 @@ async fn run_collector(opts : RunOptions) -> Int32 {
         Some(h) if h.state != "stopped" &&
           @sys.now() - h.updated < 15L * sec &&
           h.pid != @sys.current_pid() &&
-          @sys.process_create_time(h.pid) is Some(_) => {
+          // A process snapshot, not OpenProcess: a collector just ended by
+          // `schtasks /End` can still be opened for a moment, but it is no
+          // longer in the snapshot.
+          @sys.process_list()
+          .iter()
+          .any(p => p.pid == h.pid && p.exe.to_lower() == "netwhered.exe") => {
           println("run: a collector is already running (pid \{h.pid})")
           return 3
         }
@@ -596,6 +608,7 @@ async fn run_collector(opts : RunOptions) -> Int32 {
     inbox: @mailbox.Inbox::new(),
     traces: Map([]),
     paused: false,
+    stopping: false,
     core_link: "not connected",
     last_error: "",
     degraded: !elevated,
@@ -683,6 +696,9 @@ async fn run_collector(opts : RunOptions) -> Int32 {
         @async.sleep(200)
         live.feed(reader.drain_live(), devices)
         live.read_mailbox()
+        if live.stopping {
+          break
+        }
         let now = @sys.now()
         live.tick_coverage(now)
         if now - last_usage >= 10L * sec {

@@ -3,23 +3,6 @@
 // only affect traffic counted afterwards.
 
 ///|
-fn is_process_target(t : String) -> Bool {
-  t.to_lower().has_suffix(".exe") || t.contains("\\")
-}
-
-///|
-fn rule_text(r : @config.UserRule) -> String {
-  let parts = []
-  if r.process != "" {
-    parts.push("process " + r.process)
-  }
-  if r.domain is Some(p) {
-    parts.push("domain " + @config.pattern_text(p))
-  }
-  parts.join(" + ") + " -> " + r.app
-}
-
-///|
 fn small_number(s : String) -> Int32? {
   if s.length() == 0 || s.length() > 6 {
     return None
@@ -45,30 +28,17 @@ async fn cmd_classify(args : ArrayView[String]) -> Int32 {
     return 2
   }
   let dir = data_dir_of(a)
-  let rule : @config.UserRule = if is_process_target(target) {
-    {
-      app: app.trim().to_owned(),
-      process: @rules.normalize_process(target),
-      domain: None,
-    }
-  } else {
-    match @config.parse_pattern(target) {
-      Some(p) => { app: app.trim().to_owned(), process: "", domain: Some(p), }
-      None => {
-        println("classify: not a domain or process: \{target}")
-        return 2
-      }
+  let rule = match @query.classify_rule(target, app) {
+    Ok(r) => r
+    Err(e) => {
+      println("classify: \{e}")
+      return 2
     }
   }
   try {
-    let c = load_config(dir)
     // Same target again: the newest rule replaces the old one.
-    let rules = c.rules.filter(r => {
-      r.process != rule.process || r.domain != rule.domain
-    })
-    rules.push(rule)
-    save_config(dir, { ..c, rules, })
-    println("added: \{rule_text(rule)}")
+    save_config(dir, @query.with_rule(load_config(dir), rule))
+    println("added: \{@query.rule_text(rule)}")
     0
   } catch {
     e => {
@@ -100,7 +70,7 @@ async fn cmd_rules(args : ArrayView[String]) -> Int32 {
           println("no user rules")
         }
         for i, r in c.rules {
-          println("\{i + 1}. \{rule_text(r)}")
+          println("\{i + 1}. \{@query.rule_text(r)}")
         }
         let builtin = dir + "\\builtin-rules.txt"
         if @fs.exists(builtin) {
@@ -115,38 +85,26 @@ async fn cmd_rules(args : ArrayView[String]) -> Int32 {
         0
       }
       ["add"] => {
-        guard a.options.get("--app") is Some(app) && app.trim().length() > 0 else {
+        guard a.options.get("--app") is Some(app) else {
           println(usage)
           return 2
         }
-        let process = match a.options.get("--process") {
-          Some(p) => @rules.normalize_process(p)
-          None => ""
-        }
-        let domain = match a.options.get("--domain") {
-          Some(d) =>
-            match @config.parse_pattern(d) {
-              Some(p) => Some(p)
-              None => {
-                println("rules: not a domain pattern: \{d}")
-                return 2
-              }
-            }
-          None => None
-        }
-        if process == "" && domain is None {
-          println("rules: give --process, --domain or both")
-          return 2
-        }
-        let rule : @config.UserRule = {
-          app: app.trim().to_owned(),
-          process,
-          domain,
+        let rule = match
+          @query.make_rule(
+            app,
+            process=a.get("--process", ""),
+            domain=a.get("--domain", ""),
+          ) {
+          Ok(r) => r
+          Err(e) => {
+            println("rules: \{e}")
+            return 2
+          }
         }
         let rules = c.rules.copy()
         rules.push(rule)
         save_config(dir, { ..c, rules, })
-        println("added \{rules.length()}. \{rule_text(rule)}")
+        println("added \{rules.length()}. \{@query.rule_text(rule)}")
         0
       }
       ["remove", n] => {
@@ -157,10 +115,9 @@ async fn cmd_rules(args : ArrayView[String]) -> Int32 {
             return 2
           }
         }
-        let rules = c.rules.copy()
-        let gone = rules.remove(index)
-        save_config(dir, { ..c, rules, })
-        println("removed: \{rule_text(gone)}")
+        let gone = c.rules[index]
+        save_config(dir, @query.without_rule(c, index).unwrap())
+        println("removed: \{@query.rule_text(gone)}")
         0
       }
       _ => {

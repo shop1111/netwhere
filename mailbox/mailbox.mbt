@@ -5,7 +5,7 @@
 // pure: the collector supplies the facts it needs through Checks and turns
 // the returned effects into database writes and tracking changes.
 //
-// Message file: {"v":1,"id":"…","kind":"trace|pause|resume",
+// Message file: {"v":1,"id":"…","kind":"trace|pause|resume|stop",
 //                "op":"start|root|done","client_pid":N,"root_pid":N}
 // File name: <id>.<seq>.json, written as .tmp then renamed.
 
@@ -37,6 +37,9 @@ pub(all) enum Kind {
   Trace
   Pause
   Resume
+  /// Exit cleanly (quit from the tray): the collector writes what it has,
+  /// removes its ETW session and exits with code 0.
+  Stop
 }
 
 ///|
@@ -96,6 +99,7 @@ pub fn parse_message(text : String) -> Message raise MessageError {
     Some(String("trace")) => Trace
     Some(String("pause")) => Pause
     Some(String("resume")) => Resume
+    Some(String("stop")) => Stop
     _ => raise MessageError("bad kind")
   }
   let op = match m.get("op") {
@@ -134,6 +138,7 @@ pub fn Message::to_json_text(self : Message) -> String {
       Trace => "trace"
       Pause => "pause"
       Resume => "resume"
+      Stop => "stop"
     },
   )
   m["op"] = Json::string(
@@ -212,6 +217,7 @@ pub(all) enum Effect {
   Finish(String)
   Pause
   Resume
+  Stop
 }
 
 ///|
@@ -291,6 +297,10 @@ pub fn Inbox::apply(
         Resume => {
           r.set(Complete, "", now)
           out.push(Resume)
+        }
+        Stop => {
+          r.set(Complete, "", now)
+          out.push(Stop)
         }
         Trace =>
           if self.active_traces() > max_active_traces {

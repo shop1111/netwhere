@@ -4,42 +4,16 @@
 let period_help : String = "--today (default) | --7d | --30d | --hours N"
 
 ///|
-/// [from, to) in minutes from the period options.
-fn period(a : @cli.Args, now : Int64) -> (Int64, Int64, String) raise {
-  let minute = @store.ticks_per_minute
-  let to = now / minute + 1L
+/// The period from the options.
+fn period(a : @cli.Args, now : Int64) -> @query.Period raise {
   if a.has("--7d") {
-    (to - 7L * 1440L, to, "last 7 days")
+    @query.last_days(7, now)
   } else if a.has("--30d") {
-    (to - 30L * 1440L, to, "last 30 days")
+    @query.last_days(30, now)
   } else if a.options.contains("--hours") {
-    let h = a.int("--hours", 24)
-    (to - h.to_int64() * 60L, to, "last \{h} hours")
+    @query.last_hours(a.int("--hours", 24), now)
   } else {
-    (@report.local_day_start(now, offset) / minute, to, "today")
-  }
-}
-
-///|
-/// The column a row's bytes go to in the app table.
-fn route_column(r : @store.UsageRecord) -> Int32 {
-  match (r.exit_kind, r.entry) {
-    ("node", _) => 0
-    ("core-direct", _) | ("core-reject", _) => 1
-    ("unknown", _) | ("ambiguous", _) => 2
-    (_, "lan") => 4
-    _ => 3
-  }
-}
-
-///|
-fn key_of(r : @store.UsageRecord, by : String) -> String {
-  match by {
-    "domain" => if r.domain == "" { "(no name)" } else { r.domain }
-    "process" => r.process
-    "node" => r.node
-    "entry" => r.entry
-    _ => r.app
+    @query.today(now, offset)
   }
 }
 
@@ -50,42 +24,30 @@ fn cmd_report_rows(
   limit : Int32,
   config : @config.Config,
 ) -> String {
-  let sums : Map[String, FixedArray[Int64]] = Map([])
-  for r in rows {
-    if by == "node" && r.exit_kind != "node" {
-      continue
-    }
-    let k = key_of(r, by)
-    let v = match sums.get(k) {
-      Some(v) => v
-      None => {
-        let v = FixedArray::make(6, 0L)
-        sums[k] = v
-        v
-      }
-    }
-    v[route_column(r)] = v[route_column(r)] + r.up + r.down
-    v[5] = v[5] + r.up + r.down
-  }
-  let keys = sums.keys().collect()
-  keys.sort_by((a, b) => sums[b][5].compare(sums[a][5]))
-  let shown = if keys.length() > limit { keys[:limit].to_owned() } else { keys }
   let h = @report.human_bytes
   if by == "node" {
+    let ns = @query.nodes(rows, n => config.multiplier(n))
+    let shown = if ns.length() > limit { ns[:limit].to_owned() } else { ns }
     @report.table(
       ["node", "traffic", "multiplier", "plan usage"],
-      shown.map(k => {
-        let m = config.multiplier(k)
-        let est = (sums[k][5].to_double() * m).to_int64()
-        [k, h(sums[k][5]), m.to_string(), h(est)]
-      }),
+      shown.map(n => [n.node, h(n.bytes), n.multiplier.to_string(), h(n.plan)]),
     )
   } else {
+    let gs = @query.group(rows, by)
+    let shown = if gs.length() > limit { gs[:limit].to_owned() } else { gs }
     @report.table(
       [by, "via node", "core direct", "core ?", "bypass/direct", "lan", "total"],
-      shown.map(k => {
-        let v = sums[k]
-        [k, h(v[0]), h(v[1]), h(v[2]), h(v[3]), h(v[4]), h(v[5])]
+      shown.map(g => {
+        let v = g.split
+        [
+          g.key,
+          h(v.via_node),
+          h(v.core_direct),
+          h(v.core_unknown),
+          h(v.bypass),
+          h(v.lan),
+          h(v.total),
+        ]
       }),
     )
   }
@@ -113,38 +75,28 @@ async fn cmd_report(args : ArrayView[String]) -> Int32 {
   }
   guard open_ledger(dir) is Some(db) else { return 1 }
   let result = try {
-    let (from, to, label) = period(a, @sys.now())
+    let { from, to, label, } = period(a, @sys.now())
     let limit = a.int("--limit", 25)
     let config = load_config(dir) catch { _ => @config.default() }
-    let rows = db
-      .usage_between(from, to)
-      .filter(r => {
-        (match a.options.get("--app") {
-          Some(app) => r.app.to_lower() == app.to_lower()
-          None => true
-        }) &&
-        (match a.options.get("--route") {
-          Some(e) => r.entry == e
-          None => true
-        })
-      })
+    let rows = @query.filter(
+      db.usage_between(from, to),
+      app?=a.options.get("--app"),
+      entry?=a.options.get("--route"),
+    )
     println("traffic \{label}, by \{by}:")
     println("")
     println(cmd_report_rows(rows, by, limit, config).trim_end())
     // Plan consumption: proxy-node bytes times each node's multiplier; a
     // range when some exits are unknown or ambiguous.
-    let mut total = 0L
+    let t = @query.totals(rows, n => config.multiplier(n))
+    let total = t.split.total
+    let plan = t.plan
     let mut bypass = 0L
     for r in rows {
-      total += r.up + r.down
       if r.entry == "bypass" {
         bypass += r.up + r.down
       }
     }
-    let plan = @report.plan_estimate(
-      rows.map(r => (r.exit_kind, r.node, r.up + r.down)),
-      n => config.multiplier(n),
-    )
     let h = @report.human_bytes
     println("")
     println(
@@ -209,43 +161,30 @@ async fn cmd_unknown(args : ArrayView[String]) -> Int32 {
   guard open_ledger(data_dir_of(a)) is Some(db) else { return 1 }
   let result = try {
     let now = @sys.now()
-    let (from, to, label) = if a.has("--today") ||
+    let { from, to, label, } = if a.has("--today") ||
       a.has("--30d") ||
       a.options.contains("--hours") {
       period(a, now)
     } else {
-      let to = now / @store.ticks_per_minute + 1L
-      (to - 7L * 1440L, to, "last 7 days")
+      @query.last_days(7, now)
     }
-    let sums : Map[(String, String), Int64] = Map([])
-    for r in db.usage_between(from, to) {
-      if r.app == "Unknown" {
-        let k = (r.process, r.domain)
-        sums[k] = sums.get_or_default(k, 0L) + r.up + r.down
-      }
-    }
-    let keys = sums.keys().collect()
-    keys.sort_by((x, y) => sums[y].compare(sums[x]))
+    let all = @query.unclassified(db.usage_between(from, to))
     let limit = a.int("--limit", 30)
-    let shown = if keys.length() > limit {
-      keys[:limit].to_owned()
-    } else {
-      keys
-    }
+    let shown = if all.length() > limit { all[:limit].to_owned() } else { all }
     println("unclassified traffic, \{label}:")
     println("")
     println(
       @report.table(
         ["process", "domain", "traffic"],
-        shown.map(k => {
+        shown.map(u => {
           [
-            k.0,
-            if k.1 == "" {
+            u.process,
+            if u.domain == "" {
               "(no name)"
             } else {
-              k.1
+              u.domain
             },
-            @report.human_bytes(sums[k]),
+            @report.human_bytes(u.bytes),
           ]
         }),
       ).trim_end(),
@@ -264,15 +203,6 @@ async fn cmd_unknown(args : ArrayView[String]) -> Int32 {
 }
 
 ///|
-fn csv_field(s : String) -> String {
-  if s.contains(",") || s.contains("\"") || s.contains("\n") {
-    "\"" + s.replace_all(old="\"", new="\"\"") + "\""
-  } else {
-    s
-  }
-}
-
-///|
 async fn cmd_export(args : ArrayView[String]) -> Int32 {
   let a = @cli.parse(args, with_value=["--data-dir", "--hours", "--out"], switches=[
     "--csv", "--today", "--7d", "--30d",
@@ -284,31 +214,14 @@ async fn cmd_export(args : ArrayView[String]) -> Int32 {
   }
   guard open_ledger(data_dir_of(a)) is Some(db) else { return 1 }
   let result = try {
-    let (from, to, _) = period(a, @sys.now())
-    let buf = StringBuilder()
-    buf.write_string("minute,app,process,domain,entry,exit,node,rule,up,down\n")
-    for r in db.usage_between(from, to) {
-      let cells = [
-        @report.format_local(r.minute * @store.ticks_per_minute, offset),
-        r.app,
-        r.process,
-        r.domain,
-        r.entry,
-        r.exit_kind,
-        r.node,
-        r.rule,
-        r.up.to_string(),
-        r.down.to_string(),
-      ]
-      buf.write_string(cells.map(csv_field).join(","))
-      buf.write_char('\n')
-    }
+    let { from, to, .. } = period(a, @sys.now())
+    let text = @query.csv(db.usage_between(from, to), offset)
     match a.options.get("--out") {
       Some(path) => {
-        @fs.write_file(path, buf.to_string())
+        @fs.write_file(path, text)
         println("wrote \{path}")
       }
-      None => println(buf.to_string().trim_end())
+      None => println(text.trim_end())
     }
     0
   } catch {

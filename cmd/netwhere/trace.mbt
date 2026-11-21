@@ -369,7 +369,7 @@ async fn cmd_trace(args : ArrayView[String]) -> Int32 {
   match db {
     Some(db) => {
       let hb = db.heartbeat() catch { _ => None }
-      let (running, _) = collector_state(hb, @sys.now())
+      let (running, _) = @control.collector_state(hb, @sys.now())
       let degraded = match hb {
         Some(h) => h.degraded
         None => true

@@ -37,9 +37,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git diff --exit-code -- '*.mbti'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Embedded page is up to date
+        run: |
+          python -I scripts/embed_web.py --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Spikes and probe still build
         run: |
-          foreach ($dir in @('etwprobe', 'spikes/sqlite', 'spikes/mihomo_ws')) {
+          foreach ($dir in @('etwprobe', 'spikes/sqlite', 'spikes/mihomo_ws', 'spikes/webview_mv', 'spikes/tray_jj')) {
             Push-Location $dir
             moon build --target native
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

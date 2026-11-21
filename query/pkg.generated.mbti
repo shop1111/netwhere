@@ -1,0 +1,118 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/query"
+
+import {
+  "moonbitlang/core/debug",
+  "shop1111/netwhere/config",
+  "shop1111/netwhere/report",
+  "shop1111/netwhere/store",
+}
+
+// Values
+pub fn classify_rule(String, String) -> Result[@config.UserRule, String]
+
+pub fn csv(Array[@store.UsageRecord], Int32) -> String
+
+pub fn filter(Array[@store.UsageRecord], app? : String, entry? : String, key? : (String, String)) -> Array[@store.UsageRecord]
+
+pub fn group(Array[@store.UsageRecord], String) -> Array[Group]
+
+pub let groupings : Array[String]
+
+pub fn is_process_target(String) -> Bool
+
+pub fn key_of(@store.UsageRecord, String) -> String
+
+pub fn last_days(Int32, Int64) -> Period
+
+pub fn last_hours(Int32, Int64) -> Period
+
+pub fn make_rule(String, process? : String, domain? : String) -> Result[@config.UserRule, String]
+
+pub fn nodes(Array[@store.UsageRecord], (String) -> Double) -> Array[NodeUse]
+
+pub fn route_of(@store.UsageRecord) -> Route
+
+pub fn rule_text(@config.UserRule) -> String
+
+pub fn timeline(Array[@store.UsageRecord], Period, Int64, offset? : Int64) -> Array[Bucket]
+
+pub fn timeline_step(Period, max_points? : Int32) -> Int64
+
+pub fn today(Int64, Int32) -> Period
+
+pub fn totals(Array[@store.UsageRecord], (String) -> Double) -> Totals
+
+pub fn unclassified(Array[@store.UsageRecord]) -> Array[Unclassified]
+
+pub fn with_rule(@config.Config, @config.UserRule) -> @config.Config
+
+pub fn without_rule(@config.Config, Int32) -> @config.Config?
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) struct Bucket {
+  start : Int64
+  split : Split
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Group {
+  key : String
+  split : Split
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct NodeUse {
+  node : String
+  bytes : Int64
+  multiplier : Double
+  plan : Int64
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Period {
+  from : Int64
+  to : Int64
+  label : String
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) enum Route {
+  ViaNode
+  CoreDirect
+  CoreUnknown
+  Bypass
+  Lan
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Split {
+  via_node : Int64
+  core_direct : Int64
+  core_unknown : Int64
+  bypass : Int64
+  lan : Int64
+  total : Int64
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Totals {
+  split : Split
+  up : Int64
+  down : Int64
+  plan : @report.PlanEstimate
+}
+
+#derive(Eq, @debug.Debug)
+pub(all) struct Unclassified {
+  process : String
+  domain : String
+  bytes : Int64
+}
+
+// Type aliases
+
+// Traits

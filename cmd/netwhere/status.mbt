@@ -12,7 +12,7 @@ async fn cmd_status(args : ArrayView[String]) -> Int32 {
   let h = db.heartbeat() catch { _ => None }
   db.close()
   let now = @sys.now()
-  let (running, state) = collector_state(h, now)
+  let (running, state) = @control.collector_state(h, now)
   match h {
     None => println("collector: \{state}")
     Some(h) => {

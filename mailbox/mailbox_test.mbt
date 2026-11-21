@@ -110,6 +110,22 @@ test "pause and resume" {
 }
 
 ///|
+test "stop: completes at once, only for an acceptable client" {
+  let ib = @mailbox.Inbox::new()
+  let c = checks(Map([]), bad=Map([(client, "elevated client")]))
+  assert_eq(ib.apply(msg(Start, kind=Stop), 0L, c), [Changed("trace-0001")])
+  inspect(state(ib), content="rejected (elevated client)")
+  let ib = @mailbox.Inbox::new()
+  assert_eq(ib.apply(msg(Start, kind=Stop), 0L, checks(Map([]))), [
+    Changed("trace-0001"),
+    Stop,
+  ])
+  inspect(state(ib), content="complete")
+  let m = msg(Start, kind=Stop)
+  assert_eq(@mailbox.parse_message(m.to_json_text()), m)
+}
+
+///|
 test "message parsing validates everything" {
   let ok = @mailbox.parse_message(
     "{\"v\":1,\"id\":\"trace-0001\",\"kind\":\"trace\",\"op\":\"root\",\"client_pid\":100,\"root_pid\":200}",

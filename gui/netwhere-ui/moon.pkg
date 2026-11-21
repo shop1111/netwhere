@@ -1,0 +1,29 @@
+import {
+  "shop1111/netwhere/config",
+  "shop1111/netwhere/control",
+  "shop1111/netwhere/query",
+  "shop1111/netwhere/report",
+  "shop1111/netwhere/rules",
+  "shop1111/netwhere/store",
+  "shop1111/netwhere/sys",
+  "shop1111/netwhere-gui/icon",
+  "Nanaloveyuki/moonview",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
+}
+
+supported_targets = "native"
+
+options(
+  "native-stub": [ "host.c" ],
+  link: {
+    "native": {
+      "cc-link-flags": "user32.lib gdi32.lib dwmapi.lib advapi32.lib /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup",
+    },
+  },
+)
+
+pkgtype(kind: "executable")
+
+warnings = "-79"

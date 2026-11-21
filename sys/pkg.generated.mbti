@@ -22,6 +22,8 @@ pub fn detach_console() -> Unit
 
 pub fn exit(Int32) -> Unit
 
+pub fn file_exists(String) -> Bool
+
 pub fn getenv(String) -> String?
 
 pub fn image_path(Int32) -> String?
@@ -31,6 +33,8 @@ pub fn is_elevated() -> Bool
 pub fn join_command_line(ArrayView[String]) -> String
 
 pub fn kill_child() -> Unit
+
+pub fn make_dir(String) -> Int32
 
 pub fn now() -> Int64
 
@@ -46,11 +50,19 @@ pub fn process_user_sid(Int32) -> String?
 
 pub fn quote_arg(String) -> String
 
+pub fn read_file(String) -> Result[Bytes, Int32]
+
+pub fn reg_user_delete(String, String) -> Int32
+
+pub fn reg_user_set(String, String, String) -> Int32
+
 pub fn reg_user_value(String, String) -> String?
 
 pub fn resume_child() -> Bool
 
 pub fn run_elevated(String, String) -> Result[Int32, Int32]
+
+pub fn run_hidden(String, Array[String]) -> Result[Int32, Int32]
 
 pub fn run_wait(String, Array[String]) -> Result[Int32, Int32]
 
@@ -58,9 +70,17 @@ pub fn self_usage() -> Usage
 
 pub fn sleep_ms(Int32) -> Unit
 
+pub fn spawn_detached(String, Array[String]) -> Result[Int32, Int32]
+
 pub fn spawn_suspended(String) -> Int32 raise SpawnError
 
+pub fn terminate_process(Int32) -> Bool
+
 pub fn utc_offset_minutes() -> Int32
+
+pub fn write_file_atomic(String, Bytes) -> Int32
+
+pub fn write_file_in_place(String, Bytes) -> Int32
 
 // Errors
 #derive(@debug.Debug)

@@ -343,3 +343,176 @@ moonbit_string_t nw_reg_user_value(moonbit_string_t subkey, moonbit_string_t nam
   free(n);
   return out;
 }
+
+// Runs a command line without a console window and waits; stdio is not
+// inherited. For GUI processes (tray, UI). Exit code or -(Win32 error).
+int32_t nw_run_hidden(moonbit_string_t cmdline) {
+  WCHAR *buf = mbt_to_wide(cmdline);
+  if (!buf) return -(int32_t)ERROR_OUTOFMEMORY;
+  STARTUPINFOW si;
+  PROCESS_INFORMATION pi;
+  memset(&si, 0, sizeof si);
+  si.cb = sizeof si;
+  memset(&pi, 0, sizeof pi);
+  BOOL ok = CreateProcessW(NULL, buf, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi);
+  free(buf);
+  if (!ok) return -(int32_t)GetLastError();
+  CloseHandle(pi.hThread);
+  WaitForSingleObject(pi.hProcess, INFINITE);
+  DWORD code = 0;
+  GetExitCodeProcess(pi.hProcess, &code);
+  CloseHandle(pi.hProcess);
+  return (int32_t)code;
+}
+
+// Starts a command line and does not wait. Returns its pid or -(Win32 error).
+int32_t nw_spawn_detached(moonbit_string_t cmdline) {
+  WCHAR *buf = mbt_to_wide(cmdline);
+  if (!buf) return -(int32_t)ERROR_OUTOFMEMORY;
+  STARTUPINFOW si;
+  PROCESS_INFORMATION pi;
+  memset(&si, 0, sizeof si);
+  si.cb = sizeof si;
+  memset(&pi, 0, sizeof pi);
+  BOOL ok = CreateProcessW(NULL, buf, NULL, NULL, FALSE, CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP, NULL, NULL, &si, &pi);
+  free(buf);
+  if (!ok) return -(int32_t)GetLastError();
+  CloseHandle(pi.hThread);
+  CloseHandle(pi.hProcess);
+  return (int32_t)pi.dwProcessId;
+}
+
+// Sets HKEY_CURRENT_USER\<subkey> <name> to a REG_SZ. Returns a Win32 error.
+int32_t nw_reg_user_set(moonbit_string_t subkey, moonbit_string_t name, moonbit_string_t value) {
+  WCHAR *k = mbt_to_wide(subkey);
+  WCHAR *n = mbt_to_wide(name);
+  WCHAR *v = mbt_to_wide(value);
+  LSTATUS r = ERROR_OUTOFMEMORY;
+  if (k && n && v) {
+    r = RegSetKeyValueW(HKEY_CURRENT_USER, k, n, REG_SZ, v,
+                        (DWORD)((wcslen(v) + 1) * sizeof(WCHAR)));
+  }
+  free(k);
+  free(n);
+  free(v);
+  return (int32_t)r;
+}
+
+// Deletes HKEY_CURRENT_USER\<subkey> <name>; a missing value is success.
+int32_t nw_reg_user_delete(moonbit_string_t subkey, moonbit_string_t name) {
+  WCHAR *k = mbt_to_wide(subkey);
+  WCHAR *n = mbt_to_wide(name);
+  LSTATUS r = ERROR_OUTOFMEMORY;
+  if (k && n) {
+    r = RegDeleteKeyValueW(HKEY_CURRENT_USER, k, n);
+    if (r == ERROR_FILE_NOT_FOUND) r = ERROR_SUCCESS;
+  }
+  free(k);
+  free(n);
+  return (int32_t)r;
+}
+
+// Whole file as bytes; an empty Bytes with *err set when it cannot be read.
+static int32_t nw_last_read_error = 0;
+
+moonbit_bytes_t nw_read_file(moonbit_string_t path) {
+  WCHAR *p = mbt_to_wide(path);
+  nw_last_read_error = 0;
+  HANDLE h = p ? CreateFileW(p, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                             NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL)
+               : INVALID_HANDLE_VALUE;
+  free(p);
+  if (h == INVALID_HANDLE_VALUE) {
+    nw_last_read_error = (int32_t)GetLastError();
+    return moonbit_make_bytes(0, 0);
+  }
+  LARGE_INTEGER size;
+  if (!GetFileSizeEx(h, &size) || size.QuadPart > 64 * 1024 * 1024) {
+    nw_last_read_error = ERROR_FILE_TOO_LARGE;
+    CloseHandle(h);
+    return moonbit_make_bytes(0, 0);
+  }
+  moonbit_bytes_t out = moonbit_make_bytes((int32_t)size.QuadPart, 0);
+  DWORD got = 0, total = 0;
+  while (total < (DWORD)size.QuadPart &&
+         ReadFile(h, out + total, (DWORD)size.QuadPart - total, &got, NULL) && got > 0) {
+    total += got;
+  }
+  CloseHandle(h);
+  if (total != (DWORD)size.QuadPart) nw_last_read_error = ERROR_READ_FAULT;
+  return out;
+}
+
+int32_t nw_read_error(void) { return nw_last_read_error; }
+
+// Writes <path>.tmp, then renames it over <path>. Returns a Win32 error.
+int32_t nw_write_file_atomic(moonbit_string_t path, moonbit_bytes_t data) {
+  WCHAR *p = mbt_to_wide(path);
+  if (!p) return ERROR_OUTOFMEMORY;
+  size_t n = wcslen(p);
+  WCHAR *tmp = (WCHAR *)malloc((n + 5) * sizeof(WCHAR));
+  if (!tmp) {
+    free(p);
+    return ERROR_OUTOFMEMORY;
+  }
+  memcpy(tmp, p, n * sizeof(WCHAR));
+  memcpy(tmp + n, L".tmp", 5 * sizeof(WCHAR));
+  DWORD err = 0;
+  HANDLE h = CreateFileW(tmp, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (h == INVALID_HANDLE_VALUE) {
+    err = GetLastError();
+  } else {
+    DWORD len = (DWORD)Moonbit_array_length(data), put = 0;
+    if (!WriteFile(h, data, len, &put, NULL) || put != len) err = GetLastError();
+    CloseHandle(h);
+    if (!err && !MoveFileExW(tmp, p, MOVEFILE_REPLACE_EXISTING)) err = GetLastError();
+    if (err) DeleteFileW(tmp);
+  }
+  free(tmp);
+  free(p);
+  return (int32_t)err;
+}
+
+// Ends a process (installer: tray or UI running from bin\ before it is
+// replaced). Returns 1 when it was terminated or had already exited.
+int32_t nw_terminate_process(int32_t pid) {
+  HANDLE h = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, (DWORD)pid);
+  if (!h) return GetLastError() == ERROR_INVALID_PARAMETER ? 1 : 0;
+  BOOL ok = TerminateProcess(h, 0);
+  if (ok) WaitForSingleObject(h, 5000);
+  CloseHandle(h);
+  return ok ? 1 : 0;
+}
+
+int32_t nw_file_exists(moonbit_string_t path) {
+  WCHAR *p = mbt_to_wide(path);
+  if (!p) return 0;
+  DWORD a = GetFileAttributesW(p);
+  free(p);
+  return a != INVALID_FILE_ATTRIBUTES && !(a & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+// Creates a directory (one level). 0 when it exists afterwards, else a Win32 error.
+int32_t nw_make_dir(moonbit_string_t path) {
+  WCHAR *p = mbt_to_wide(path);
+  if (!p) return ERROR_OUTOFMEMORY;
+  DWORD err = CreateDirectoryW(p, NULL) ? 0 : GetLastError();
+  free(p);
+  return err == ERROR_ALREADY_EXISTS ? 0 : (int32_t)err;
+}
+
+// Overwrites a file in place (open, write, cut to length). For config.json,
+// which the user may modify but not replace: the data directory itself
+// only grants the user read, so no temporary file can be created there.
+int32_t nw_write_file_in_place(moonbit_string_t path, moonbit_bytes_t data) {
+  WCHAR *p = mbt_to_wide(path);
+  if (!p) return ERROR_OUTOFMEMORY;
+  HANDLE h = CreateFileW(p, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+  free(p);
+  if (h == INVALID_HANDLE_VALUE) return (int32_t)GetLastError();
+  DWORD err = 0, len = (DWORD)Moonbit_array_length(data), put = 0;
+  if (!WriteFile(h, data, len, &put, NULL) || put != len) err = GetLastError();
+  if (!err && !SetEndOfFile(h)) err = GetLastError();
+  CloseHandle(h);
+  return (int32_t)err;
+}

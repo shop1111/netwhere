@@ -1,0 +1,14 @@
+import {
+  "justjavac/tray",
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+}
+
+supported_targets = "native"
+
+options(
+  "native-stub": [ "timer.c" ],
+  link: { "native": { "cc-link-flags": "user32.lib shell32.lib" } },
+)
+
+pkgtype(kind: "executable")

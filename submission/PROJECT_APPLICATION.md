@@ -4,7 +4,7 @@
 - 参赛者：郑培翔　联系方式：wx:zhengpx10086
 - GitHub：https://github.com/shop1111/netwhere　Mooncakes：`shop1111/netwhere@0.3.0`
 
-**简介**：开着代理时，常说不清某个程序的流量进没进代理、走了哪个节点。现有 Clash 流量工具只看得到进入内核的连接，而"为什么没走代理"恰恰发生在内核看不见的地方。netwhere 用 ETW 按程序记下本机全部流量（只观测，不拦截、不抓包），再用源端口关联代理内核的连接记录，回答三个问题：流量走了哪（入口：代理端口 / TUN / 绕过 / 局域网；出口：节点 / 直连），为什么没走代理（候选原因与依据），结论有多可信。常用命令：`netwhere trace -- git push`（追踪一条命令）、`netwhere report --7d --by node`（流量账本与套餐估算）。
+**简介**：开着代理时，常说不清某个程序的流量进没进代理、走了哪个节点。现有 Clash 流量工具只看得到进入内核的连接，而"为什么没走代理"恰恰发生在内核看不见的地方。netwhere 用 ETW 按程序记下本机全部流量（只观测，不拦截、不抓包），再用源端口关联代理内核的连接记录，回答三个问题：流量走了哪（入口：代理端口 / TUN / 绕过 / 局域网；出口：节点 / 直连），为什么没走代理（候选原因与依据），结论有多可信。常用命令：`netwhere trace -- git push`（追踪一条命令）、`netwhere report --7d --by node`（流量账本与套餐估算）；也可以用托盘图标和图形界面查看。
 
 **适用范围**：入口层只依据本机监听表、本地地址和路由，与内核无关；出口层支持实现了 Clash API 的 Mihomo（Clash Verge Rev、FlClash 等）和 sing-box，Xray、V2Ray 只有入口信息；只做 Windows，因为 ETW 不装驱动就能按进程记账。
 
@@ -55,8 +55,10 @@ tun-no-ipv6 (certain): TUN carries only IPv4; IPv6 traffic leaves through the ph
 
 **实现与进展**
 - ETW 回调定长解码进环形队列，MoonBit 记账写 SQLite；只有后台采集进程提权，命令行普通权限，两边只通过文件交换。
-- CI 共 112 个测试；实机录制 FlClash 三份、sing-box 1.14.4 一份，ETW 丢事件均为 0；采集进程 2 小时私有内存 6.6–8.6 MB、CPU 0.52% 单核。
+- 托盘和图形界面（第二步）：托盘显示今日流量和采集状态，可暂停、恢复、切换登录时启动、退出；界面有概览（走向占比、趋势、应用排行、覆盖缺口）、逐级展开的明细、节点倍率与套餐、待归类一键归类、规则和设置。界面是手写的 HTML/CSS/JS，经 `Nanaloveyuki/moonview` 跑在 WebView2 里，页面走自定义协议不开端口；托盘用 `justjavac/tray`。界面与命令行共用 `query` 包，数字一致。
+- 像普通应用一样可控：采集任务改为按需运行，普通权限即可启动，不弹 UAC；登录时启动由托盘的 HKCU Run 值开关；从托盘退出经信箱让采集进程自己退出并清理 ETW 会话。托盘常驻约 2 MB；界面只在打开时运行（约 170 MB，主要是 WebView2），关闭后 0.2 秒内全部退出。
+- CI 共 120 个测试；实机录制 FlClash 三份、sing-box 1.14.4 一份，ETW 丢事件均为 0；采集进程 2 小时私有内存 6.6–8.6 MB、CPU 0.52% 单核。
 - 本轮根据初审意见新增绕过诊断、关联方式、覆盖记录、套餐区间（0.2.0）和 sing-box 出口（0.3.0），已发布到 Mooncakes。
-- 还没做：24 小时连续运行；下一步是托盘和图形界面。
+- 还没做：24 小时连续运行、sing-box TUN 模式实录。
 
-**参考与许可**：v2fly/domain-list-community（MIT）；Microsoft ETW / IP Helper 文档；Mihomo 与 sing-box 的 Clash API。依赖 `moonbitlang/async`、`moonbit-community/sqlite3`。Apache-2.0。
+**参考与许可**：v2fly/domain-list-community（MIT）；Microsoft ETW / IP Helper 文档；Mihomo 与 sing-box 的 Clash API。依赖 `moonbitlang/async`、`moonbit-community/sqlite3`；托盘和界面另用 `justjavac/tray`、`Nanaloveyuki/moonview`。Apache-2.0。

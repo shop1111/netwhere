@@ -42,6 +42,7 @@ pub(all) enum Effect {
   Finish(String)
   Pause
   Resume
+  Stop
 }
 
 pub struct Inbox {
@@ -57,6 +58,7 @@ pub(all) enum Kind {
   Trace
   Pause
   Resume
+  Stop
 }
 
 #derive(Eq, @debug.Debug)

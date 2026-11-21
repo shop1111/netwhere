@@ -13,7 +13,11 @@ let usage : String =
   #|  netwhere classify <domain|process.exe> <app>
   #|  netwhere rules list | add --app A [--process P] [--domain D] | remove N
   #|  netwhere export --csv [period] [--out FILE]
-  #|  netwhere install | uninstall [--purge]  register the collector (one UAC prompt)
+  #|  netwhere install [--no-autostart]       register the collector and tray (one UAC prompt)
+  #|  netwhere uninstall [--purge]            remove them (one UAC prompt)
+  #|  netwhere start | stop                   start or stop the collector (no UAC prompt)
+  #|  netwhere pause | resume                 stop or resume recording, collector keeps running
+  #|  netwhere autostart [on|off]             start the tray (and so the collector) at login
   #|  netwhere replay FILE [--pid N] [--expect]   analyse a recording
   #|  netwhere verify MANIFEST                    check recorded scenarios
   #|
@@ -39,6 +43,8 @@ async fn main {
       "rules" => cmd_rules(args[2:])
       "install" => cmd_install(args[2:])
       "uninstall" => cmd_uninstall(args[2:])
+      "start" | "stop" | "pause" | "resume" => cmd_control(args[1], args[2:])
+      "autostart" => cmd_autostart(args[2:])
       "replay" => cmd_replay(args[2:])
       "verify" => cmd_verify(args[2:])
       "help" | "--help" | "-h" => {

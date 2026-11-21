@@ -385,3 +385,135 @@ pub fn reg_user_value(subkey : String, name : String) -> String? {
     v => Some(v)
   }
 }
+
+///|
+#borrow(cmdline)
+extern "c" fn nw_run_hidden(cmdline : String) -> Int32 = "nw_run_hidden"
+
+///|
+/// Runs a program without a console window and waits (for GUI processes,
+/// where `run_wait` would flash a console). Ok(exit code) or Err(Win32 error).
+pub fn run_hidden(
+  program : String,
+  args : Array[String],
+) -> Result[Int32, Int32] {
+  let r = nw_run_hidden(join_command_line([program, ..args][:]))
+  if r < 0 {
+    Err(-r)
+  } else {
+    Ok(r)
+  }
+}
+
+///|
+#borrow(cmdline)
+extern "c" fn nw_spawn_detached(cmdline : String) -> Int32 = "nw_spawn_detached"
+
+///|
+/// Starts a program and does not wait. Ok(pid) or Err(Win32 error).
+pub fn spawn_detached(
+  program : String,
+  args : Array[String],
+) -> Result[Int32, Int32] {
+  let r = nw_spawn_detached(join_command_line([program, ..args][:]))
+  if r < 0 {
+    Err(-r)
+  } else {
+    Ok(r)
+  }
+}
+
+///|
+#borrow(subkey, name, value)
+extern "c" fn nw_reg_user_set(
+  subkey : String,
+  name : String,
+  value : String,
+) -> Int32 = "nw_reg_user_set"
+
+///|
+#borrow(subkey, name)
+extern "c" fn nw_reg_user_delete(subkey : String, name : String) -> Int32 = "nw_reg_user_delete"
+
+///|
+/// Sets a REG_SZ value under HKEY_CURRENT_USER\<subkey>. 0 or a Win32 error.
+pub fn reg_user_set(subkey : String, name : String, value : String) -> Int32 {
+  nw_reg_user_set(subkey, name, value)
+}
+
+///|
+/// Deletes a value under HKEY_CURRENT_USER\<subkey>; missing is success.
+pub fn reg_user_delete(subkey : String, name : String) -> Int32 {
+  nw_reg_user_delete(subkey, name)
+}
+
+///|
+#borrow(path)
+extern "c" fn nw_read_file(path : String) -> Bytes = "nw_read_file"
+
+///|
+extern "c" fn nw_read_error() -> Int32 = "nw_read_error"
+
+///|
+/// Reads a whole file (up to 64 MB) synchronously, for code outside the
+/// async runtime (tray, UI). Err(Win32 error) when it cannot be read.
+pub fn read_file(path : String) -> Result[Bytes, Int32] {
+  let b = nw_read_file(path)
+  match nw_read_error() {
+    0 => Ok(b)
+    e => Err(e)
+  }
+}
+
+///|
+#borrow(path, data)
+extern "c" fn nw_write_file_atomic(path : String, data : Bytes) -> Int32 = "nw_write_file_atomic"
+
+///|
+/// Writes `path` through a temporary file and a rename, so readers never
+/// see half a file. 0 or a Win32 error.
+pub fn write_file_atomic(path : String, data : Bytes) -> Int32 {
+  nw_write_file_atomic(path, data)
+}
+
+///|
+extern "c" fn nw_terminate_process(pid : Int32) -> Int32 = "nw_terminate_process"
+
+///|
+/// Ends a process and waits up to 5 s for it. True when it is gone.
+pub fn terminate_process(pid : Int32) -> Bool {
+  nw_terminate_process(pid) == 1
+}
+
+///|
+#borrow(path)
+extern "c" fn nw_file_exists(path : String) -> Int32 = "nw_file_exists"
+
+///|
+/// Is there a file (not a directory) at `path`? Synchronous.
+pub fn file_exists(path : String) -> Bool {
+  nw_file_exists(path) != 0
+}
+
+///|
+#borrow(path)
+extern "c" fn nw_make_dir(path : String) -> Int32 = "nw_make_dir"
+
+///|
+/// Creates one directory level; 0 when it exists afterwards, else a Win32
+/// error. Synchronous.
+pub fn make_dir(path : String) -> Int32 {
+  nw_make_dir(path)
+}
+
+///|
+#borrow(path, data)
+extern "c" fn nw_write_file_in_place(path : String, data : Bytes) -> Int32 = "nw_write_file_in_place"
+
+///|
+/// Overwrites `path` in place (created when missing). For files the user
+/// may modify but whose directory they may not write, such as config.json.
+/// 0 or a Win32 error.
+pub fn write_file_in_place(path : String, data : Bytes) -> Int32 {
+  nw_write_file_in_place(path, data)
+}

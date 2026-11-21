@@ -1,0 +1,67 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/control"
+
+import {
+  "moonbitlang/core/debug",
+  "shop1111/netwhere/config",
+  "shop1111/netwhere/mailbox",
+  "shop1111/netwhere/store",
+}
+
+// Values
+pub fn autostart_command() -> String?
+
+pub fn collector_alive(Int32) -> Bool
+
+pub fn collector_state(@store.Heartbeat?, Int64) -> (Bool, String)
+
+pub fn installed() -> Bool
+
+pub fn installed_tray(String) -> String
+
+pub fn installed_ui(String) -> String
+
+pub fn load_config(String) -> @config.Config raise @config.ConfigError
+
+pub fn read_text(String) -> String?
+
+pub fn request(String, @mailbox.Kind) -> Result[String, String]
+
+pub let run_key : String
+
+pub let run_value : String
+
+pub fn save_config(String, @config.Config) -> Result[Unit, String]
+
+pub fn set_autostart(String?) -> Int32
+
+pub fn start() -> Result[Unit, String]
+
+pub fn status(String) -> Status
+
+pub fn stop_and_wait(String, timeout_ms? : Int32) -> Bool
+
+pub let task_name : String
+
+pub fn tray_command(String) -> String
+
+// Errors
+
+// Types and methods
+#derive(Eq, @debug.Debug)
+pub(all) enum Phase {
+  NotInstalled
+  Stopped
+  Running
+  Paused
+}
+
+pub(all) struct Status {
+  phase : Phase
+  detail : String
+  heartbeat : @store.Heartbeat?
+}
+
+// Type aliases
+
+// Traits
