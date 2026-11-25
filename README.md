@@ -117,6 +117,8 @@ netwhere-ui.exe    界面（普通权限，打开时才运行；页面走 netwhe
 | `etw`、`route`、`sys`、`store`、`mihomo/client` | native | ETW、IP Helper、进程、SQLite、WebSocket |
 | `control`、`query` | native | 采集进程的启停与状态、自启开关、配置读写；报表聚合（命令行和界面共用） |
 
+安装后开始菜单里有 netwhere：托盘没在运行时打开它会启动托盘、开始采集并打开窗口；托盘在运行时打开它只打开窗口。登录时自启只出现托盘图标。界面的运行记录在 `%LOCALAPPDATA%\netwhere\ui.log`。
+
 托盘和界面在 workspace 里的另一个模块 `gui/`（`shop1111/netwhere-gui`，不发布），依赖 [`justjavac/tray`](https://mooncakes.io/docs/justjavac/tray) 和 [`Nanaloveyuki/moonview`](https://mooncakes.io/docs/Nanaloveyuki/moonview)；发布到 Mooncakes 的库本身不带这些依赖。
 
 Mooncakes：[`shop1111/netwhere`](https://mooncakes.io/docs/shop1111/netwhere)。

@@ -15,7 +15,11 @@ pub fn collector_alive(Int32) -> Bool
 
 pub fn collector_state(@store.Heartbeat?, Int64) -> (Bool, String)
 
+pub fn create_start_menu_entry(String) -> Result[String, String]
+
 pub fn installed() -> Bool
+
+pub fn installed_icon(String) -> String
 
 pub fn installed_tray(String) -> String
 
@@ -24,6 +28,8 @@ pub fn installed_ui(String) -> String
 pub fn load_config(String) -> @config.Config raise @config.ConfigError
 
 pub fn read_text(String) -> String?
+
+pub fn remove_start_menu_entry() -> Bool
 
 pub fn request(String, @mailbox.Kind) -> Result[String, String]
 
@@ -36,6 +42,8 @@ pub fn save_config(String, @config.Config) -> Result[Unit, String]
 pub fn set_autostart(String?) -> Int32
 
 pub fn start() -> Result[Unit, String]
+
+pub fn start_menu_shortcut() -> String?
 
 pub fn status(String) -> Status
 

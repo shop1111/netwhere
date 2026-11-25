@@ -170,8 +170,9 @@ pub fn stop_and_wait(dir : String, timeout_ms~ : Int32 = 8000) -> Bool {
 
 ///|
 /// The command line the Run value should hold for this tray.
+/// At login the tray starts in the background: icon only, no window.
 pub fn tray_command(tray_exe : String) -> String {
-  @sys.quote_arg(tray_exe)
+  @sys.quote_arg(tray_exe) + " --background"
 }
 
 ///|

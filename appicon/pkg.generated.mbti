@@ -1,0 +1,15 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "shop1111/netwhere/appicon"
+
+// Values
+pub fn icon_file(String) -> Bytes
+
+pub let icon_sizes : Array[Int32]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

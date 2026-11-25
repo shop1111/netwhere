@@ -49,6 +49,21 @@ fn dir_of(path : String) -> String {
 }
 
 ///|
+/// One line in %LOCALAPPDATA%\netwhere\ui.log (the last 32 KB are kept):
+/// start, single-instance hand-over, WebView events, why the window closed.
+fn log(msg : String) -> Unit {
+  let path = @icon.user_dir() + "\\ui.log"
+  let old = @control.read_text(path).unwrap_or("")
+  let old = if old.length() > 32768 {
+    old[old.length() - 16384:].to_owned()
+  } else {
+    old
+  }
+  let line = "\{@report.format_local(@sys.now(), @sys.utc_offset_minutes())} pid \{@sys.current_pid()} \{msg}\n"
+  ignore(@sys.write_file_atomic(path, @utf8.encode((old + line)[:])))
+}
+
+///|
 fn rect_of(packed : Int32) -> @moonview.Rect {
   @moonview.Rect::new(x=0, y=0, width=packed >> 16, height=packed & 0xffff)
 }
@@ -117,8 +132,10 @@ fn view_error(e : @moonview.WebViewError) -> String {
 fn main {
   let args = @env.args()
   if activate_existing() != 0 {
+    log("another window is open: brought it to the front, exiting")
     return
   }
+  log("start")
   let dir = arg_value(args, "--data-dir").unwrap_or(@sys.data_dir())
   let web_dir = arg_value(args, "--web")
   let icons = @icon.write_icons()
@@ -211,12 +228,17 @@ fn main {
         }
         ignore(w.post_message(reply.stringify()))
       }
-      CreationFailed(e) =>
+      Ready => log("webview ready")
+      CreationFailed(e) => {
+        log("webview creation failed: \{view_error(e)}")
         message_box(
           "无法创建 WebView2（\{view_error(e)}）。请确认已安装 Microsoft Edge WebView2 运行时。",
         )
-      ProcessFailed(e) =>
+      }
+      ProcessFailed(e) => {
+        log("webview process failed: \{view_error(e)}")
         message_box("WebView2 进程出错：\{view_error(e)}")
+      }
       _ => ()
     }
   }
@@ -239,16 +261,23 @@ fn main {
   match @moonview.WebView::create_in_context(options.context, hwnd, options) {
     Ok(w) => view.val = Some(w)
     Err(e) => {
+      log("webview create rejected: \{view_error(e)}")
       message_box("无法创建 WebView2：\{view_error(e)}")
       destroy_window()
     }
   }
-  while pump() != 0 {
+  let mut status = 0
+  while true {
+    status = pump()
+    if status <= 0 {
+      break
+    }
     let r = take_resize()
     if r >= 0 && view.val is Some(w) {
       ignore(w.set_bounds(rect_of(r)))
     }
     if take_close() != 0 {
+      log("close requested")
       if view.val is Some(w) {
         ignore(w.destroy())
         view.val = None
@@ -256,4 +285,5 @@ fn main {
       destroy_window()
     }
   }
+  log(if status < 0 { "message loop failed, exiting" } else { "exit" })
 }

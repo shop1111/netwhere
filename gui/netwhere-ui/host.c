@@ -134,10 +134,12 @@ MOONBIT_FFI_EXPORT int32_t nwu_client_size(void) {
   return ((r.right - r.left) << 16) | ((r.bottom - r.top) & 0xffff);
 }
 
-// Pumps one message. Returns 0 after WM_QUIT.
+// Pumps one message. Returns 0 after WM_QUIT, -1 when GetMessage fails.
 MOONBIT_FFI_EXPORT int32_t nwu_pump(void) {
   MSG m;
-  if (GetMessageW(&m, NULL, 0, 0) <= 0) return 0;
+  BOOL r = GetMessageW(&m, NULL, 0, 0);
+  if (r == 0) return 0;
+  if (r < 0) return -1;
   TranslateMessage(&m);
   DispatchMessageW(&m);
   return 1;

@@ -12,11 +12,15 @@ pub fn child_wait(Int32) -> Bool
 
 pub fn command_line() -> String
 
+pub fn create_shortcut(String, String, args? : String, icon? : String, description? : String) -> Int32
+
 pub fn current_pid() -> Int32
 
 pub fn current_user_sid() -> String
 
 pub fn data_dir() -> String
+
+pub fn delete_file(String) -> Int32
 
 pub fn detach_console() -> Unit
 

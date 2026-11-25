@@ -517,3 +517,36 @@ extern "c" fn nw_write_file_in_place(path : String, data : Bytes) -> Int32 = "nw
 pub fn write_file_in_place(path : String, data : Bytes) -> Int32 {
   nw_write_file_in_place(path, data)
 }
+
+///|
+#borrow(lnk, target, args, icon, description)
+extern "c" fn nw_create_shortcut(
+  lnk : String,
+  target : String,
+  args : String,
+  icon : String,
+  description : String,
+) -> Int32 = "nw_create_shortcut"
+
+///|
+/// Creates or replaces the shortcut `lnk` to `target` (working directory:
+/// the target's folder; `icon` an .ico path or ""). 0 or an HRESULT.
+pub fn create_shortcut(
+  lnk : String,
+  target : String,
+  args~ : String = "",
+  icon~ : String = "",
+  description~ : String = "",
+) -> Int32 {
+  nw_create_shortcut(lnk, target, args, icon, description)
+}
+
+///|
+#borrow(path)
+extern "c" fn nw_delete_file(path : String) -> Int32 = "nw_delete_file"
+
+///|
+/// Deletes a file; a missing one is success. 0 or a Win32 error.
+pub fn delete_file(path : String) -> Int32 {
+  nw_delete_file(path)
+}

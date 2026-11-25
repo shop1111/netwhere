@@ -5,7 +5,9 @@
 // value. Every 5 s it reads the heartbeat and today's totals from
 // ledger.db; it never writes there.
 //
-// usage: netwhere-tray.exe [--data-dir DIR] [--no-start]
+// usage: netwhere-tray.exe [--data-dir DIR] [--no-start] [--background]
+//   --background  icon only (start at login, after install); without it, as
+//                 from the Start menu, the window opens too
 
 ///|
 extern "C" fn single_instance() -> Int32 = "nwt_single_instance"
@@ -342,6 +344,9 @@ fn main {
   }
   app.render()
   ignore(tray.show())
+  if !args.contains("--background") {
+    app.open_ui()
+  }
   let mut running = true
   while running {
     match tray.pump(blocking=true) {

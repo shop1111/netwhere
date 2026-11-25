@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <psapi.h>
 #include <sddl.h>
+#include <shlobj.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,6 +14,8 @@
 
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "psapi.lib")
+#pragma comment(lib, "ole32.lib")
+#pragma comment(lib, "uuid.lib")
 
 static moonbit_string_t wide_to_mbt(const WCHAR *s, int n) {
   moonbit_string_t m = moonbit_make_string(n, 0);
@@ -515,4 +518,55 @@ int32_t nw_write_file_in_place(moonbit_string_t path, moonbit_bytes_t data) {
   if (!err && !SetEndOfFile(h)) err = GetLastError();
   CloseHandle(h);
   return (int32_t)err;
+}
+
+// Creates (or replaces) a .lnk shortcut. Returns 0 or an HRESULT.
+int32_t nw_create_shortcut(moonbit_string_t lnk, moonbit_string_t target, moonbit_string_t args,
+                           moonbit_string_t icon, moonbit_string_t description) {
+  WCHAR *l = mbt_to_wide(lnk), *t = mbt_to_wide(target), *a = mbt_to_wide(args);
+  WCHAR *i = mbt_to_wide(icon), *d = mbt_to_wide(description);
+  HRESULT hr = E_OUTOFMEMORY;
+  if (l && t && a && i && d) {
+    HRESULT init = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    IShellLinkW *sl = NULL;
+    hr = CoCreateInstance(&CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, &IID_IShellLinkW, (void **)&sl);
+    if (SUCCEEDED(hr)) {
+      sl->lpVtbl->SetPath(sl, t);
+      sl->lpVtbl->SetArguments(sl, a);
+      sl->lpVtbl->SetDescription(sl, d);
+      if (i[0]) sl->lpVtbl->SetIconLocation(sl, i, 0);
+      // Working directory: the target's folder.
+      WCHAR dir[MAX_PATH];
+      wcsncpy(dir, t, MAX_PATH - 1);
+      dir[MAX_PATH - 1] = 0;
+      WCHAR *slash = wcsrchr(dir, L'\\');
+      if (slash) {
+        *slash = 0;
+        sl->lpVtbl->SetWorkingDirectory(sl, dir);
+      }
+      IPersistFile *pf = NULL;
+      hr = sl->lpVtbl->QueryInterface(sl, &IID_IPersistFile, (void **)&pf);
+      if (SUCCEEDED(hr)) {
+        hr = pf->lpVtbl->Save(pf, l, TRUE);
+        pf->lpVtbl->Release(pf);
+      }
+      sl->lpVtbl->Release(sl);
+    }
+    if (SUCCEEDED(init)) CoUninitialize();
+  }
+  free(l);
+  free(t);
+  free(a);
+  free(i);
+  free(d);
+  return SUCCEEDED(hr) ? 0 : (int32_t)hr;
+}
+
+// Deletes a file; a missing file is success. Returns 0 or a Win32 error.
+int32_t nw_delete_file(moonbit_string_t path) {
+  WCHAR *p = mbt_to_wide(path);
+  if (!p) return ERROR_OUTOFMEMORY;
+  DWORD err = DeleteFileW(p) ? 0 : GetLastError();
+  free(p);
+  return (err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND) ? 0 : (int32_t)err;
 }

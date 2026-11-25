@@ -158,6 +158,8 @@ async fn cmd_install(args : ArrayView[String]) -> Int32 {
         None => out.say("  \{what}: not found next to netwhere.exe, skipped")
       }
     }
+    // The icon of the Start menu entry (`netwhere install` creates it).
+    @fs.write_file(@control.installed_icon(dir), @appicon.icon_file("running"))
     let rules = a.get("--rules", source + "\\builtin-rules.txt")
     if @fs.exists(rules) {
       copy_file(rules, dir + "\\builtin-rules.txt")

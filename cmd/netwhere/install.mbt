@@ -121,7 +121,14 @@ async fn cmd_install(args : ArrayView[String]) -> Int32 {
         "start at login: on (tray icon; turn off in its menu or with `netwhere autostart off`)",
       )
     }
-    ignore(@sys.spawn_detached(tray, []))
+    match @control.create_start_menu_entry(dir) {
+      Ok(_) =>
+        println(
+          "Start menu: netwhere (opens the tray, or the window when the tray runs)",
+        )
+      Err(e) => println("Start menu: \{e}")
+    }
+    ignore(@sys.spawn_detached(tray, ["--background"]))
   }
   if code == 0 {
     // Give the task a moment to start, then show what it reports.
@@ -145,6 +152,10 @@ async fn cmd_uninstall(args : ArrayView[String]) -> Int32 {
   if @control.autostart_command() is Some(_) {
     ignore(@control.set_autostart(None))
     println("start at login: removed")
+  }
+  if @control.start_menu_shortcut() is Some(lnk) && @fs.exists(lnk) {
+    ignore(@control.remove_start_menu_entry())
+    println("Start menu: removed")
   }
   elevate(dir, "uninstall", if a.has("--purge") { ["--purge"] } else { [] })
 }

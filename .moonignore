@@ -1,0 +1,15 @@
+_build/
+.mooncakes/
+*.obj
+*.pdb
+# Raw (unsanitized) recordings and probe output never leave the machine.
+**/evidence/raw/
+**/raw/
+
+# Planning notes stay local; not published.
+/PLAN.md
+/DECISIONS.md
+
+# Not part of the published library: the workspace and its GUI module.
+/moon.work
+/gui/

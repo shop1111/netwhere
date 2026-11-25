@@ -2,10 +2,6 @@
 package "shop1111/netwhere-gui/icon"
 
 // Values
-pub fn icon_file(String) -> Bytes
-
-pub let icon_sizes : Array[Int32]
-
 pub fn user_dir() -> String
 
 pub fn write_icons() -> Map[String, String]
